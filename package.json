@@ -16,7 +16,11 @@
     "build": "npm run build --workspaces",
     "test": "npm run test --workspace=backend && npm run test --workspace=simulated-company",
     "test:all": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "start": "npm run dev",
+    "frontend": "npm run dev:frontend",
+    "backend": "npm run dev:backend",
+    "portal": "npm run dev:portal"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
