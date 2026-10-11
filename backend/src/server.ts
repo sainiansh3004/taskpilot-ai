@@ -50,6 +50,10 @@ export function createServerApp() {
   });
 
   // Health check
+  app.get('/', (_req, res) => {
+    res.send(`<!DOCTYPE html><html><body style="font-family: system-ui, sans-serif; background: #0a0f1d; color: #f8fafc; padding: 50px; text-align: center;"><h2>TaskPilot AI &mdash; Agent Backend API</h2><p style="color: #94a3b8;">The backend engine is running on port 4000.</p><p style="margin-top: 24px;"><a href="http://localhost:3000" style="color: #06b6d4; font-weight: bold; text-decoration: none; font-size: 18px; border: 1px solid #06b6d4; padding: 10px 20px; border-radius: 8px; display: inline-block;">&rarr; Open Frontend Control Center (http://localhost:3000)</a></p><p style="margin-top: 20px;"><a href="/health" style="color: #64748b; font-size: 13px;">View Backend Health JSON (/health)</a></p></body></html>`);
+  });
+
   app.get('/health', (_req, res) => {
     res.json({
       status: 'ok',
