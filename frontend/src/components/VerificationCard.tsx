@@ -111,7 +111,7 @@ export function VerificationCard({ task }: VerificationCardProps) {
           </div>
           <div className="rounded overflow-hidden border border-border/60">
             <img
-              src={`http://localhost:4000${evidence.screenshot.relativePath}`}
+              src={`${evidence.screenshot.relativePath}`}
               alt="Browser Evidence Screenshot"
               className="w-full h-auto object-cover max-h-48"
             />

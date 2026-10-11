@@ -63,7 +63,7 @@ export default function Home() {
       eventSourceRef.current = null;
     }
 
-    const es = new EventSource(`http://localhost:4000/api/tasks/${encodeURIComponent(taskId)}/stream`);
+    const es = new EventSource(`/backend-api/tasks/${encodeURIComponent(taskId)}/stream`);
     eventSourceRef.current = es;
 
     es.onmessage = (e) => {
