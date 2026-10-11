@@ -1,0 +1,24 @@
+=======================================================
+                    INVOICE
+=======================================================
+Company Name: Globex Corp
+Vendor ID: VEND-GLOBEX-44
+Address: 742 Evergreen Terrace, Springfield, OR
+Contact: accounts@globexcorp.com
+
+Invoice Number: INV-2024-104
+Issue Date: 2024-04-01
+Due Date: 2024-05-01
+Payment Terms: Net 30
+Status: Approved
+
+Description:
+Enterprise Security Assessment and Red Team Drill
+
+Line Items:
+1. Penetration Testing Scope A - Qty: 1 @ $5200.00 = $5,200.00
+
+-------------------------------------------------------
+Total Amount Due: $5,200.00 USD
+-------------------------------------------------------
+=======================================================

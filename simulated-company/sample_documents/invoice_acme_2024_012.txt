@@ -1,0 +1,29 @@
+=======================================================
+                    INVOICE
+=======================================================
+Company Name: Acme Ltd
+Vendor ID: VEND-ACME-99
+Address: 100 Industrial Parkway, Austin, TX 78701
+Contact: billing@acmeltd.io
+
+Invoice Number: INV-2024-012
+Issue Date: 2024-01-15
+Due Date: 2024-02-15
+Payment Terms: Net 30
+Status: Paid
+
+Description:
+Q1 Consulting and Cloud Infrastructure Support
+
+Line Items:
+1. Cloud Architecture Advisory - Qty: 10 hrs @ $100.00/hr = $1,000.00
+2. Security Hardening Session - Qty: 3 hrs @ $150.00/hr = $450.00
+
+-------------------------------------------------------
+Subtotal: $1,450.00
+Tax (0%): $0.00
+Total Amount Due: $1,450.00 USD
+-------------------------------------------------------
+Remit Payment To:
+Wire / ACH: Bank of Austin, Routing: 111000025, Acct: 884729104
+=======================================================

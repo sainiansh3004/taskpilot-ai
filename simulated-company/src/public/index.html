@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Invoice Portal - CentrAlign Simulation</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand">
+      <div class="logo-badge">CA</div>
+      <div>
+        <h1>CentrAlign Enterprise Invoicing System</h1>
+        <p class="subtitle">Simulated Corporate Vendor & Records Portal</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="chaos-indicator" class="badge badge-normal">System Normal</span>
+      <button id="reset-db-btn" class="btn btn-secondary btn-sm" title="Reset seed records">Reset Database</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Top banner with quick statistics -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Total Invoices</span>
+        <span class="stat-value" id="stat-total-invoices">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Pending Intake</span>
+        <span class="stat-value" id="stat-pending-invoices">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Entered Records</span>
+        <span class="stat-value" id="stat-entered-records">--</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Simulated API Status</span>
+        <span class="stat-value text-success" id="stat-api-status">Healthy</span>
+      </div>
+    </section>
+
+    <!-- Invoices Section -->
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Vendor Invoices Intake</h2>
+        <div class="search-bar">
+          <input 
+            type="text" 
+            id="search-input" 
+            data-testid="search-input" 
+            placeholder="Search company (e.g. Acme Ltd), invoice number..."
+          />
+          <button id="search-btn" class="btn btn-primary btn-sm" data-testid="search-btn">Search</button>
+          <button id="clear-search-btn" class="btn btn-secondary btn-sm">Clear</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table" id="invoices-table" data-testid="invoices-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Company</th>
+              <th>Invoice #</th>
+              <th>Issue Date</th>
+              <th>Due Date</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="invoices-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Grid: Create Record Form & Processed Records -->
+    <div class="grid-two-col">
+      <!-- Create Record Form -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Enter Invoice Record</h2>
+          <span class="badge badge-info">Accounting Ledger</span>
+        </div>
+
+        <div id="record-status-alert" class="alert d-none" data-testid="record-status-alert"></div>
+
+        <form id="create-record-form" data-testid="create-record-form">
+          <div class="form-group">
+            <label for="record-invoice-id">Invoice ID</label>
+            <input type="text" id="record-invoice-id" data-testid="input-invoice-id" required placeholder="e.g. inv-acme-002" />
+          </div>
+
+          <div class="form-group">
+            <label for="record-company-name">Company Name</label>
+            <input type="text" id="record-company-name" data-testid="input-company-name" required placeholder="e.g. Acme Ltd" />
+          </div>
+
+          <div class="form-group">
+            <label for="record-invoice-number">Invoice Number</label>
+            <input type="text" id="record-invoice-number" data-testid="input-invoice-number" required placeholder="e.g. INV-2024-098" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="record-amount">Amount (USD)</label>
+              <input type="number" step="0.01" id="record-amount" data-testid="input-amount" required placeholder="3890.50" />
+            </div>
+            <div class="form-group">
+              <label for="record-due-date">Due Date</label>
+              <input type="text" id="record-due-date" data-testid="input-due-date" required placeholder="YYYY-MM-DD" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="record-notes">Audit Notes</label>
+            <input type="text" id="record-notes" data-testid="input-notes" placeholder="e.g. Processed by TaskPilot AI Autonomous Agent" />
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="submit-record-btn" class="btn btn-primary" data-testid="submit-record-btn">
+              Record Invoice in Ledger
+            </button>
+            <button type="button" id="clear-form-btn" class="btn btn-secondary">Clear</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Processed Ledger Records -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Internal Processed Records</h2>
+          <button id="refresh-records-btn" class="btn btn-secondary btn-sm">Refresh</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="records-table" data-testid="records-table">
+            <thead>
+              <tr>
+                <th>Record ID</th>
+                <th>Invoice #</th>
+                <th>Company</th>
+                <th>Amount</th>
+                <th>Due Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- Invoice Detail Modal -->
+    <div id="invoice-modal" class="modal d-none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Invoice Details</h3>
+          <button id="modal-close-btn" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body-content">
+          <!-- Populated dynamically -->
+        </div>
+        <div class="modal-footer">
+          <button id="modal-prefill-btn" class="btn btn-primary">Prefill Record Form</button>
+          <button id="modal-dismiss-btn" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

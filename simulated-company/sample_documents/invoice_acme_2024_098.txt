@@ -1,0 +1,29 @@
+=======================================================
+                    INVOICE
+=======================================================
+Company Name: Acme Ltd
+Vendor ID: VEND-ACME-99
+Address: 100 Industrial Parkway, Austin, TX 78701
+Contact: billing@acmeltd.io
+
+Invoice Number: INV-2024-098
+Issue Date: 2024-05-10
+Due Date: 2024-06-10
+Payment Terms: Net 30
+Status: Pending Intake
+
+Description:
+Latest Q2 Enterprise AI Gateway Implementation and API Tier
+
+Line Items:
+1. Enterprise LLM Router Configuration - Qty: 1 system @ $2500.00 = $2,500.00
+2. Telemetry and Latency Optimization - Qty: 9.27 hrs @ $150.00/hr = $1,390.50
+
+-------------------------------------------------------
+Subtotal: $3,890.50
+Tax (0%): $0.00
+Total Amount Due: $3,890.50 USD
+-------------------------------------------------------
+Remit Payment To:
+Wire / ACH: Bank of Austin, Routing: 111000025, Acct: 884729104
+=======================================================

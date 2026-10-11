@@ -1,0 +1,25 @@
+{
+  "name": "taskpilot-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TaskPilot AI - Autonomous Enterprise Task Execution Platform for CentrAlign Hiring Assignment",
+  "workspaces": [
+    "backend",
+    "simulated-company",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:portal": "npm run dev --workspace=simulated-company",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev": "concurrently -n \"PORTAL,BACKEND,FRONTEND\" -c \"magenta,cyan,blue\" \"npm run dev:portal\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspace=backend && npm run test --workspace=simulated-company",
+    "test:all": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}
