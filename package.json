@@ -20,7 +20,10 @@
     "start": "npm run dev",
     "frontend": "npm run dev:frontend",
     "backend": "npm run dev:backend",
-    "portal": "npm run dev:portal"
+    "portal": "npm run dev:portal",
+    "clean:ports": "node -e \"const cp=require('child_process'); [3000,4000,4001].forEach(p=>{try{const pid=cp.execSync('lsof -ti :'+p).toString().trim(); if(pid) cp.execSync('kill -9 '+pid.replace(/\\n/g,' '));}catch(e){}});\"",
+    "predev": "npm run clean:ports",
+    "prestart": "npm run clean:ports"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
