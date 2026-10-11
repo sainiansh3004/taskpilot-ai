@@ -23,7 +23,16 @@
     "portal": "npm run dev:portal",
     "clean:ports": "node -e \"const cp=require('child_process'); [3000,4000,4001].forEach(p=>{try{const pid=cp.execSync('lsof -ti :'+p).toString().trim(); if(pid) cp.execSync('kill -9 '+pid.replace(/\\n/g,' '));}catch(e){}});\"",
     "predev": "npm run clean:ports",
-    "prestart": "npm run clean:ports"
+    "prestart": "npm run clean:ports",
+    "clean:port:3000": "node -e \"const cp=require('child_process'); try{const pid=cp.execSync('lsof -ti :3000').toString().trim(); if(pid) cp.execSync('kill -9 '+pid.replace(/\\n/g,' '));}catch(e){}\"",
+    "clean:port:4000": "node -e \"const cp=require('child_process'); try{const pid=cp.execSync('lsof -ti :4000').toString().trim(); if(pid) cp.execSync('kill -9 '+pid.replace(/\\n/g,' '));}catch(e){}\"",
+    "clean:port:4001": "node -e \"const cp=require('child_process'); try{const pid=cp.execSync('lsof -ti :4001').toString().trim(); if(pid) cp.execSync('kill -9 '+pid.replace(/\\n/g,' '));}catch(e){}\"",
+    "predev:portal": "npm run clean:port:4001",
+    "preportal": "npm run clean:port:4001",
+    "predev:backend": "npm run clean:port:4000",
+    "prebackend": "npm run clean:port:4000",
+    "predev:frontend": "npm run clean:port:3000",
+    "prefrontend": "npm run clean:port:3000"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
