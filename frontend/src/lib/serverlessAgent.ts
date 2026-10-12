@@ -4,14 +4,24 @@ function uuidv4(): string {
   }
   return 'evt_' + Math.random().toString(36).substring(2, 10);
 }
-import type { TaskRecord, ExecutionEvent, DashboardStats, PendingApproval, PendingClarification } from '../types';
+import type { TaskRecord, ExecutionEvent, DashboardStats, PendingClarification } from '../types';
+import {
+  getSharedEvents,
+  getSharedPortalRecords,
+  getSharedTask,
+  getSharedTasks,
+  hasSharedState,
+  persistSharedEvent,
+  saveSharedTask
+} from './sharedState';
 
-// In-memory persistent state across serverless invocations within worker lifecycle
+// Process-local state supports development; shared Redis is authoritative when configured.
 const globalTasks = new Map<string, TaskRecord>();
 const globalEvents = new Map<string, ExecutionEvent[]>();
 const eventSubscribers = new Map<string, Set<(event: ExecutionEvent) => void>>();
-const clarificationWaiters = new Map<string, (response: string) => void>();
-const approvalWaiters = new Map<string, (approved: boolean) => void>();
+const taskExecutions = new Map<string, Promise<void>>();
+const persistenceQueues = new Map<string, Promise<void>>();
+const persistenceErrors = new Map<string, Error>();
 
 // Seed default portal data
 export const portalInvoices = [
@@ -121,6 +131,30 @@ export function getTaskEvents(taskId: string): ExecutionEvent[] {
   return globalEvents.get(taskId) || [];
 }
 
+export async function readTasks(): Promise<TaskRecord[]> {
+  return hasSharedState ? getSharedTasks() : getAllTasks();
+}
+
+export async function readTask(taskId: string): Promise<TaskRecord | undefined> {
+  return hasSharedState ? getSharedTask(taskId) : getTask(taskId);
+}
+
+export async function readTaskEvents(taskId: string): Promise<ExecutionEvent[]> {
+  return hasSharedState ? getSharedEvents(taskId) : getTaskEvents(taskId);
+}
+
+export async function readPortalRecords(): Promise<unknown[]> {
+  if (!hasSharedState) return portalRecords;
+  return await getSharedPortalRecords() ?? portalRecords;
+}
+
+export async function waitForTaskExecution(taskId: string): Promise<void> {
+  await taskExecutions.get(taskId);
+  await persistenceQueues.get(taskId);
+  const error = persistenceErrors.get(taskId);
+  if (error) throw error;
+}
+
 export function subscribeTaskEvents(taskId: string, cb: (event: ExecutionEvent) => void): () => void {
   if (!eventSubscribers.has(taskId)) {
     eventSubscribers.set(taskId, new Set());
@@ -143,15 +177,33 @@ function emitEvent(event: ExecutionEvent) {
       try { cb(event); } catch (e) { console.error(e); }
     });
   }
+
+  if (hasSharedState) {
+    const task = globalTasks.get(event.taskId);
+    const taskSnapshot = task ? JSON.parse(JSON.stringify(task)) as TaskRecord : undefined;
+    const eventSnapshot = JSON.parse(JSON.stringify(event)) as ExecutionEvent;
+    const recordsSnapshot = JSON.parse(JSON.stringify(portalRecords)) as typeof portalRecords;
+    const previous = persistenceQueues.get(event.taskId) ?? Promise.resolve();
+    const current = previous.catch(() => undefined).then(async () => {
+      if (taskSnapshot) await persistSharedEvent(taskSnapshot, eventSnapshot, recordsSnapshot);
+    });
+    persistenceQueues.set(event.taskId, current);
+    void current.catch(error => {
+      const failure = error instanceof Error ? error : new Error(String(error));
+      persistenceErrors.set(event.taskId, failure);
+      console.error(`Failed to persist task ${event.taskId}:`, failure);
+    });
+  }
 }
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function resolveApproval(taskId: string, approved: boolean): boolean {
-  const task = globalTasks.get(taskId);
+export async function resolveApproval(taskId: string, approved: boolean): Promise<boolean> {
+  const task = globalTasks.get(taskId) ?? (hasSharedState ? await getSharedTask(taskId) : undefined);
   if (!task || task.status !== 'awaiting_approval' || !task.pendingApproval) return false;
+  globalTasks.set(taskId, task);
 
   task.status = 'running';
   task.pendingApproval.status = approved ? 'approved' : 'rejected';
@@ -166,17 +218,14 @@ export function resolveApproval(taskId: string, approved: boolean): boolean {
     payload: { approved, toolName: task.pendingApproval.toolName }
   });
 
-  const waiter = approvalWaiters.get(task.pendingApproval.id);
-  if (waiter) {
-    waiter(approved);
-    approvalWaiters.delete(task.pendingApproval.id);
-  }
+  if (hasSharedState) await waitForTaskPersistence(taskId);
   return true;
 }
 
-export function resolveClarification(taskId: string, response: string): boolean {
-  const task = globalTasks.get(taskId);
+export async function resolveClarification(taskId: string, response: string): Promise<boolean> {
+  const task = globalTasks.get(taskId) ?? (hasSharedState ? await getSharedTask(taskId) : undefined);
   if (!task || task.status !== 'awaiting_clarification' || !task.pendingClarification) return false;
+  globalTasks.set(taskId, task);
 
   task.status = 'running';
   task.pendingClarification.response = response;
@@ -191,15 +240,44 @@ export function resolveClarification(taskId: string, response: string): boolean 
     payload: { response }
   });
 
-  const waiter = clarificationWaiters.get(task.pendingClarification.id);
-  if (waiter) {
-    waiter(response);
-    clarificationWaiters.delete(task.pendingClarification.id);
-  }
+  if (hasSharedState) await waitForTaskPersistence(taskId);
   return true;
 }
 
+async function waitForTaskPersistence(taskId: string): Promise<void> {
+  await persistenceQueues.get(taskId);
+  const error = persistenceErrors.get(taskId);
+  if (error) throw error;
+}
+
+async function waitForClarification(taskId: string, clarificationId: string): Promise<string> {
+  for (;;) {
+    const localResponse = globalTasks.get(taskId)?.pendingClarification?.response;
+    if (localResponse) return localResponse;
+
+    if (hasSharedState) {
+      const storedTask = await getSharedTask(taskId);
+      const storedClarification = storedTask?.pendingClarification;
+      if (storedTask && storedClarification?.id === clarificationId && storedClarification.response) {
+        const localTask = globalTasks.get(taskId);
+        if (localTask) {
+          localTask.status = storedTask.status;
+          localTask.pendingClarification = storedClarification;
+        }
+        return storedClarification.response;
+      }
+    }
+
+    await sleep(500);
+  }
+}
+
 export async function createAndRunTask(goal: string): Promise<TaskRecord> {
+  if (hasSharedState) {
+    const storedRecords = await getSharedPortalRecords<typeof portalRecords[number]>();
+    if (storedRecords) portalRecords.splice(0, portalRecords.length, ...storedRecords);
+  }
+
   const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const now = new Date().toISOString();
 
@@ -217,10 +295,24 @@ export async function createAndRunTask(goal: string): Promise<TaskRecord> {
   globalTasks.set(taskId, task);
   globalEvents.set(taskId, []);
 
-  // Launch asynchronous execution
-  runAutonomousLoop(taskId).catch(err => {
+  if (hasSharedState) await saveSharedTask(task);
+
+  const execution = runAutonomousLoop(taskId).catch(err => {
+    task.status = 'failed';
+    task.completedAt = new Date().toISOString();
+    task.error = err instanceof Error ? err.message : String(err);
+    task.summary = task.error;
+    emitEvent({
+      id: uuidv4(),
+      taskId,
+      stepNumber: task.stepsCount,
+      timestamp: new Date().toISOString(),
+      eventType: 'task_completed',
+      payload: { status: task.status, error: task.error }
+    });
     console.error(`Task ${taskId} execution failed:`, err);
   });
+  taskExecutions.set(taskId, execution);
 
   return task;
 }
@@ -283,9 +375,7 @@ async function runAutonomousLoop(taskId: string) {
     });
 
     // Wait for operator input
-    const operatorResponse = await new Promise<string>(resolve => {
-      clarificationWaiters.set(clarId, resolve);
-    });
+    const operatorResponse = await waitForClarification(taskId, clarId);
 
     task.status = 'running';
     await sleep(500);

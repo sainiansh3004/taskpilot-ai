@@ -63,7 +63,7 @@ export async function cancelTask(taskId: string): Promise<void> {
 }
 
 export async function approveTask(taskId: string, approved: boolean): Promise<void> {
-  const res = await fetch(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/approve`, {
+  const res = await fetch(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/approval`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ approved })

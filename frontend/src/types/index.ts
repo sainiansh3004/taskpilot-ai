@@ -64,4 +64,5 @@ export interface DashboardStats {
   failed: number;
   pendingApproval: number;
   pendingClarification: number;
+  statePersistence?: 'shared' | 'instance-local';
 }

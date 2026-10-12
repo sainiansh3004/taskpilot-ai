@@ -159,6 +159,11 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
         {/* Metric Summary Cards */}
         <DashboardStats stats={stats} />
+        {stats?.statePersistence === 'instance-local' && (
+          <div role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Shared task storage is not connected. Tasks may not appear consistently between requests. Connect Upstash Redis in Vercel to enable reliable history.
+          </div>
+        )}
 
         {/* Task Objective Submitter */}
         <TaskSubmitter onSubmit={handleTaskSubmit} isLoading={isSubmitting} />

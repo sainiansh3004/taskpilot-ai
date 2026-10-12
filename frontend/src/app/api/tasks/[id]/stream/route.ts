@@ -1,4 +1,6 @@
-import { getTaskEvents, subscribeTaskEvents } from '../../../../../lib/serverlessAgent';
+import { readTask, readTaskEvents } from '../../../../../lib/serverlessAgent';
+
+export const maxDuration = 300;
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -6,30 +8,41 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const stream = new ReadableStream({
     start(controller) {
-      // 1. Send all existing events first
-      const existing = getTaskEvents(id);
-      for (const evt of existing) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`));
-      }
+      let closed = false;
+      let cursor = 0;
 
-      // 2. Subscribe to subsequent live events
-      const unsubscribe = subscribeTaskEvents(id, (evt) => {
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        controller.close();
+      };
+
+      req.signal.addEventListener('abort', close, { once: true });
+
+      void (async () => {
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`));
-          if (['task_completed', 'cancelled', 'budget_exhausted'].includes(evt.eventType)) {
-            // Keep stream open briefly then close
-            setTimeout(() => {
-              try { controller.close(); } catch {}
-            }, 1000);
-          }
-        } catch {
-          unsubscribe();
-        }
-      });
+          while (!closed) {
+            const events = await readTaskEvents(id);
+            for (; cursor < events.length; cursor++) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(events[cursor])}\n\n`));
+            }
 
-      req.signal.addEventListener('abort', () => {
-        unsubscribe();
-      });
+            const task = await readTask(id);
+            if (task && ['succeeded', 'partially_succeeded', 'failed', 'cancelled', 'budget_exhausted'].includes(task.status)) {
+              close();
+              return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          console.error(`Task event stream failed for ${id}:`, error);
+          if (!closed) {
+            closed = true;
+            controller.error(error);
+          }
+        }
+      })();
     }
   });
 

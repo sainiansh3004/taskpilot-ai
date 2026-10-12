@@ -267,6 +267,8 @@ NEXT_PUBLIC_API_URL=https://YOUR-BACKEND-DOMAIN/api
 NEXT_PUBLIC_PORTAL_URL=https://YOUR-PORTAL-DOMAIN
 ```
 
+For the Vercel-hosted serverless demo, connect an Upstash Redis database from the Vercel Marketplace and add its REST URL and token as `KV_REST_API_URL` and `KV_REST_API_TOKEN` (the `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` names are also supported). This shared store keeps task status, execution events, and created portal records visible across separate Vercel function instances. Without it, the serverless demo falls back to process-local memory and task history may not be available to every request.
+
 Deploy the frontend after setting these values. Add the resulting Vercel origin to `ALLOWED_ORIGINS` on both Railway services, and redeploy those services. Keep the Railway volume mounted: without it, SQLite data and screenshot evidence will not persist across deployments.
 
 Leave `OPENAI_API_KEY` unset to use the built-in deterministic engine, or configure it on the backend Railway service to enable OpenAI.

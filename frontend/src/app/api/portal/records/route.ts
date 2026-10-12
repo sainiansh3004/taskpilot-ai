@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { portalRecords } from '../../../../lib/serverlessAgent';
+import { readPortalRecords } from '../../../../lib/serverlessAgent';
 
 export async function GET() {
+  const records = await readPortalRecords();
   return NextResponse.json({
-    count: portalRecords.length,
-    records: portalRecords
+    count: records.length,
+    records
   });
 }
