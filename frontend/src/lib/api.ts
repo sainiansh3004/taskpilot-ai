@@ -1,12 +1,16 @@
 import type { TaskRecord, ExecutionEvent, DashboardStats } from '../types';
 
-const API_BASE = typeof window !== 'undefined'
-  ? '/backend-api'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api');
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '/backend-api').replace(/\/$/, '');
 
-const PORTAL_BASE = typeof window !== 'undefined'
-  ? '/portal-api'
-  : (process.env.NEXT_PUBLIC_PORTAL_URL || 'http://localhost:4001');
+export const PORTAL_BASE = (process.env.NEXT_PUBLIC_PORTAL_URL || '/portal-api').replace(/\/$/, '');
+
+const SCREENSHOT_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? API_BASE.replace(/\/api$/, '')
+  : '';
+
+export function getScreenshotUrl(relativePath: string): string {
+  return `${SCREENSHOT_BASE}${relativePath}`;
+}
 
 export async function fetchStats(): Promise<DashboardStats> {
   const res = await fetch(`${API_BASE}/stats`);

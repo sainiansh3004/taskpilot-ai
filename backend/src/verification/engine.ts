@@ -71,6 +71,72 @@ export class VerificationEngine {
       };
     }
 
+    if (goalLower.includes('document') || goalLower.includes('research')) {
+      const invoice = memory.extractedInvoice;
+      if (!invoice) {
+        conditions.push({
+          name: 'Invoice Fields Extracted',
+          passed: false,
+          expected: 'Structured invoice fields from the source document',
+          actual: null,
+          details: 'No extracted invoice fields were found in agent working memory.'
+        });
+
+        return {
+          verified: false,
+          score: 0,
+          checkedConditions: conditions,
+          evidence,
+          summary: 'VERIFICATION_FAILED: Agent did not extract invoice fields from the document.'
+        };
+      }
+
+      evidence.extractedInvoice = invoice;
+      const extractedChecks = [
+        {
+          name: 'Company Name Extracted',
+          value: invoice.companyName,
+          valid: typeof invoice.companyName === 'string' && invoice.companyName.trim().length > 0
+        },
+        {
+          name: 'Invoice Number Extracted',
+          value: invoice.invoiceNumber,
+          valid: typeof invoice.invoiceNumber === 'string' && invoice.invoiceNumber.trim().length > 0
+        },
+        {
+          name: 'Amount Extracted',
+          value: invoice.amount,
+          valid: typeof invoice.amount === 'number' && Number.isFinite(invoice.amount) && invoice.amount > 0
+        },
+        {
+          name: 'Due Date Extracted',
+          value: invoice.dueDate,
+          valid: typeof invoice.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueDate)
+        }
+      ];
+
+      for (const check of extractedChecks) {
+        conditions.push({
+          name: check.name,
+          passed: check.valid,
+          expected: 'A valid value extracted from the source document',
+          actual: check.value ?? null
+        });
+      }
+
+      const passedChecks = conditions.filter(condition => condition.passed).length;
+      const verified = passedChecks === conditions.length;
+      return {
+        verified,
+        score: conditions.length > 0 ? passedChecks / conditions.length : 0,
+        checkedConditions: conditions,
+        evidence,
+        summary: verified
+          ? `VERIFIED: Extracted ${invoice.companyName} invoice ${invoice.invoiceNumber} for $${invoice.amount} ${invoice.currency}, due ${invoice.dueDate}.`
+          : `VERIFICATION_FAILED: Only ${passedChecks}/${conditions.length} required invoice fields were extracted from the document.`
+      };
+    }
+
     // 3. Standard Invoice Record Entry & Verification (e.g., Acme Ltd, Globex, etc.)
     const invoiceNumber = memory.invoiceNumber || memory.selectedInvoice?.invoiceNumber || memory.createdRecord?.invoiceNumber;
     const companyName = memory.companyName || memory.selectedInvoice?.companyName;

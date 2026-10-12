@@ -1,0 +1,12 @@
+.git
+.vercel
+node_modules
+**/node_modules
+**/.next
+**/dist
+data
+screenshots
+.env
+.env.*
+coverage
+*.log

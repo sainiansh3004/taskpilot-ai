@@ -10,6 +10,7 @@ import { ApprovalDialog } from '../components/ApprovalDialog';
 import { ClarificationDialog } from '../components/ClarificationDialog';
 import { PortalModal } from '../components/PortalModal';
 import {
+  API_BASE,
   fetchStats,
   fetchTasks,
   fetchTask,
@@ -63,7 +64,7 @@ export default function Home() {
       eventSourceRef.current = null;
     }
 
-    const es = new EventSource(`/backend-api/tasks/${encodeURIComponent(taskId)}/stream`);
+    const es = new EventSource(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/stream`);
     eventSourceRef.current = es;
 
     es.onmessage = (e) => {

@@ -478,6 +478,10 @@ export class AgentOrchestrator {
 
         if (toolResult.success) {
           consecutiveActionRetries = 0; // reset retry counter on success
+          if (toolName === 'extract_supported_invoice_fields') {
+            memory.extractedInvoice = toolResult.data?.extracted;
+          }
+
           this.emitEvent({
             id: uuidv4(),
             taskId,

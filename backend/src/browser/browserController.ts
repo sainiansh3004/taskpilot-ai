@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SCREENSHOTS_DIR = path.resolve(__dirname, '../../../screenshots');
+const SCREENSHOTS_DIR = process.env.SCREENSHOTS_DIR || path.resolve(__dirname, '../../../screenshots');
 
 export class BrowserController {
   private browser: Browser | null = null;

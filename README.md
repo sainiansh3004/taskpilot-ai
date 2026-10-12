@@ -224,7 +224,56 @@ npm run dev:frontend  # Next.js control center (:3000)
 
 ---
 
-## 15. Testing Commands
+## 15. Production Deployment (Vercel + Railway)
+
+The frontend is deployed to Vercel. The agent backend and simulated portal are separate Railway services because they need long-running processes, Playwright, and persistent SQLite storage.
+
+### Deploy the backend and portal to Railway
+
+Create two Railway services from this repository. For both services, use the repository root as the build context and set the Dockerfile path to the corresponding file:
+
+- Agent backend: `Dockerfile.backend`
+- Simulated portal: `Dockerfile.portal`
+
+For **each** service, attach a Railway Volume mounted at `/data`, then enable a public domain and configure the `/health` health-check path.
+
+Set the agent backend service variables:
+
+```env
+DATABASE_PATH=/data/taskpilot.sqlite
+SCREENSHOTS_DIR=/data/screenshots
+SIMULATED_PORTAL_URL=https://YOUR-PORTAL-DOMAIN
+ALLOWED_ORIGINS=https://YOUR-VERCEL-DOMAIN
+REQUIRE_APPROVAL_FOR_WRITES=true
+```
+
+Set the portal service variables:
+
+```env
+PORTAL_DATABASE_PATH=/data/simulated_company.sqlite
+ALLOWED_ORIGINS=https://YOUR-VERCEL-DOMAIN
+```
+
+Railway supplies `PORT` automatically. After both services have deployed, replace the placeholder domains above with their actual public URLs and redeploy the backend.
+
+### Deploy the frontend to Vercel
+
+Import the repository into Vercel as a Next.js project and set the project root directory to `frontend`. Enable **Include source files outside of the Root Directory**, since the frontend TypeScript configuration extends the repository-level `tsconfig.base.json`.
+
+Set these Vercel environment variables for the environments you deploy:
+
+```env
+NEXT_PUBLIC_API_URL=https://YOUR-BACKEND-DOMAIN/api
+NEXT_PUBLIC_PORTAL_URL=https://YOUR-PORTAL-DOMAIN
+```
+
+Deploy the frontend after setting these values. Add the resulting Vercel origin to `ALLOWED_ORIGINS` on both Railway services, and redeploy those services. Keep the Railway volume mounted: without it, SQLite data and screenshot evidence will not persist across deployments.
+
+Leave `OPENAI_API_KEY` unset to use the built-in deterministic engine, or configure it on the backend Railway service to enable OpenAI.
+
+---
+
+## 16. Testing Commands
 
 Run the automated test suite:
 ```bash

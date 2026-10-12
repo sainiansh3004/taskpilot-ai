@@ -95,6 +95,32 @@ describe('Autonomous Agent Orchestration & Execution Loop', () => {
     expect(savedRecord?.dueDate).toBe('2024-06-10');
   });
 
+  it('extracts and independently verifies fields from a local invoice document', async () => {
+    const goal = 'List and read sample invoice documents in repository, then extract structured fields.';
+
+    const task = await orchestrator.startTask(goal);
+    let finalTask = taskRepo.getTaskById(task.id);
+    const startTime = Date.now();
+    while (finalTask && !['succeeded', 'failed', 'partially_succeeded', 'budget_exhausted'].includes(finalTask.status)) {
+      if (Date.now() - startTime > 15000) break;
+      await new Promise(r => setTimeout(r, 200));
+      finalTask = taskRepo.getTaskById(task.id);
+    }
+
+    expect(finalTask?.status).toBe('succeeded');
+    expect(finalTask?.summary).toContain('INV-2024-098');
+    expect(finalTask?.summary).toContain('3890.5');
+
+    const verifiedEvent = taskRepo.getEventsForTask(task.id).find(event => event.eventType === 'verification_passed');
+    expect(verifiedEvent).toBeDefined();
+    expect(verifiedEvent?.payload.verification.evidence.extractedInvoice).toMatchObject({
+      companyName: 'Acme Ltd',
+      invoiceNumber: 'INV-2024-098',
+      amount: 3890.5,
+      dueDate: '2024-06-10'
+    });
+  });
+
   it('detects pre-existing duplicate invoice and safely stops before corrupting ledger (Umbrella Inc)', async () => {
     const goal = 'Process invoice for Umbrella Inc and record in system.';
 

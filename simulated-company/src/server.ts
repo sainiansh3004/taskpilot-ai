@@ -13,7 +13,19 @@ export function createPortalApp(dbInstance?: PortalDatabase) {
   const app = express();
   const db = dbInstance || new PortalDatabase();
 
-  app.use(cors());
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001')
+    .split(',')
+    .map((origin) => origin.trim());
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin '${origin}' is not allowed by CORS.`));
+    }
+  }));
   app.use(express.json());
   app.use(express.static(path.resolve(__dirname, 'public')));
 
@@ -208,7 +220,7 @@ export function createPortalApp(dbInstance?: PortalDatabase) {
 
 // Standalone runner
 if (process.env.NODE_ENV !== 'test') {
-  const PORT = parseInt(process.env.SIMULATED_PORTAL_PORT || '4001', 10);
+  const PORT = parseInt(process.env.PORT || process.env.SIMULATED_PORTAL_PORT || '4001', 10);
   const { app } = createPortalApp();
   app.listen(PORT, () => {
     console.log(`[Simulated Enterprise Portal] Running at http://localhost:${PORT}`);

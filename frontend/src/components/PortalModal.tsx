@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, ExternalLink, RefreshCw, Building, FileSpreadsheet } from 'lucide-react';
-import { fetchPortalInvoices, fetchPortalRecords } from '../lib/api';
+import { PORTAL_BASE, fetchPortalInvoices, fetchPortalRecords } from '../lib/api';
 
 interface PortalModalProps {
   isOpen: boolean;
@@ -62,7 +62,7 @@ export function PortalModal({ isOpen, onClose }: PortalModalProps) {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <a
-              href="http://localhost:4001"
+              href={PORTAL_BASE}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-surface border border-border text-xs text-primary hover:text-cyan-300"

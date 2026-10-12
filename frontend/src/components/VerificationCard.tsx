@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ShieldCheck, Check, X, AlertTriangle, FileText, Image as ImageIcon } from 'lucide-react';
+import { getScreenshotUrl } from '../lib/api';
 import type { TaskRecord } from '../types';
 
 interface VerificationCardProps {
@@ -111,7 +112,7 @@ export function VerificationCard({ task }: VerificationCardProps) {
           </div>
           <div className="rounded overflow-hidden border border-border/60">
             <img
-              src={`${evidence.screenshot.relativePath}`}
+              src={getScreenshotUrl(evidence.screenshot.relativePath)}
               alt="Browser Evidence Screenshot"
               className="w-full h-auto object-cover max-h-48"
             />
