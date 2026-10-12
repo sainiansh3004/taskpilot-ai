@@ -59,18 +59,20 @@ export function ApprovalDialog({ approval, onResolve }: ApprovalDialogProps) {
 
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
+            type="button"
             onClick={() => handleAction(false)}
             disabled={submitting}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-200 text-xs font-semibold transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-200 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
           >
             <X className="h-4 w-4" />
             <span>Reject Action</span>
           </button>
 
           <button
+            type="button"
             onClick={() => handleAction(true)}
             disabled={submitting}
-            className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 shadow-md shadow-emerald-900/40"
+            className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 shadow-md shadow-emerald-900/40 cursor-pointer"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             <span>Approve & Proceed</span>

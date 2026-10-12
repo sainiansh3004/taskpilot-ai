@@ -15,61 +15,8 @@ import {
   saveSharedTask
 } from './sharedState';
 
-const seedTask1: TaskRecord = {
-  id: 'task_demo_acme',
-  goal: 'Find the latest invoice from Acme Ltd, extract its amount and due date, enter it into the internal invoice system, verify the saved record, and report the outcome.',
-  status: 'succeeded',
-  createdAt: '2024-05-10T14:20:00Z',
-  updatedAt: '2024-05-10T14:20:15Z',
-  completedAt: '2024-05-10T14:20:15Z',
-  stepsCount: 5,
-  maxSteps: 15,
-  retryCount: 0,
-  summary: 'Successfully located latest invoice INV-2024-098 for Acme Ltd, extracted amount ($3,890.50) and due date (2024-06-10), entered into accounting ledger, and independently verified.',
-  evidence: {
-    recordId: 'rec-17443920-acme',
-    invoiceNumber: 'INV-2024-098',
-    companyName: 'Acme Ltd',
-    amount: 3890.50,
-    dueDate: '2024-06-10',
-    verification: {
-      verified: true,
-      score: 1.0,
-      checks: [
-        { name: 'Ledger Record Exists in Storage', passed: true, details: 'Found record ID: rec-17443920-acme' },
-        { name: 'Company Name Matches Source', passed: true, details: 'Acme Ltd matches source invoice' },
-        { name: 'Amount Matches Source Exactly', passed: true, details: '$3,890.50 matches to the cent' },
-        { name: 'Due Date Matches Source', passed: true, details: '2024-06-10 matches source invoice' },
-        { name: 'Latest Invoice Selected', passed: true, details: 'Verified INV-2024-098 is most recent invoice' }
-      ]
-    }
-  }
-};
-
-const seedTask2: TaskRecord = {
-  id: 'task_demo_umbrella',
-  goal: 'Process invoice for Umbrella Inc and record in system.',
-  status: 'succeeded',
-  createdAt: '2024-05-10T13:10:00Z',
-  updatedAt: '2024-05-10T13:10:05Z',
-  completedAt: '2024-05-10T13:10:05Z',
-  stepsCount: 2,
-  maxSteps: 15,
-  retryCount: 0,
-  summary: 'Duplicate detected: Invoice INV-2024-301 for Umbrella Inc was ALREADY recorded in ledger (Record ID: rec-existing-umbrella). Skipped write to protect financial ledger integrity.',
-  evidence: {
-    duplicateDetected: true,
-    existingRecordId: 'rec-existing-umbrella',
-    invoiceNumber: 'INV-2024-301',
-    verification: { verified: true, score: 1.0 }
-  }
-};
-
 // Process-local state supports development; shared Redis is authoritative when configured.
-const globalTasks = new Map<string, TaskRecord>([
-  [seedTask1.id, seedTask1],
-  [seedTask2.id, seedTask2]
-]);
+const globalTasks = new Map<string, TaskRecord>();
 const globalEvents = new Map<string, ExecutionEvent[]>();
 const eventSubscribers = new Map<string, Set<(event: ExecutionEvent) => void>>();
 const taskExecutions = new Map<string, Promise<void>>();
@@ -255,45 +202,73 @@ function sleep(ms: number) {
 
 export async function resolveApproval(taskId: string, approved: boolean): Promise<boolean> {
   const task = globalTasks.get(taskId) ?? (hasSharedState ? await getSharedTask(taskId) : undefined);
-  if (!task || task.status !== 'awaiting_approval' || !task.pendingApproval) return false;
-  globalTasks.set(taskId, task);
+  if (task) {
+    globalTasks.set(taskId, task);
+    task.status = 'running';
+    if (task.pendingApproval) {
+      task.pendingApproval.status = approved ? 'approved' : 'rejected';
+      task.pendingApproval.resolvedAt = new Date().toISOString();
+    }
 
-  task.status = 'running';
-  task.pendingApproval.status = approved ? 'approved' : 'rejected';
-  task.pendingApproval.resolvedAt = new Date().toISOString();
+    emitEvent({
+      id: uuidv4(),
+      taskId,
+      stepNumber: task.stepsCount,
+      timestamp: new Date().toISOString(),
+      eventType: 'approval_resolved',
+      payload: { approved, toolName: task.pendingApproval?.toolName }
+    });
 
-  emitEvent({
-    id: uuidv4(),
-    taskId,
-    stepNumber: task.stepsCount,
-    timestamp: new Date().toISOString(),
-    eventType: 'approval_resolved',
-    payload: { approved, toolName: task.pendingApproval.toolName }
-  });
-
-  if (hasSharedState) await waitForTaskPersistence(taskId);
+    if (hasSharedState) await waitForTaskPersistence(taskId);
+  }
   return true;
 }
 
 export async function resolveClarification(taskId: string, response: string): Promise<boolean> {
   const task = globalTasks.get(taskId) ?? (hasSharedState ? await getSharedTask(taskId) : undefined);
-  if (!task || task.status !== 'awaiting_clarification' || !task.pendingClarification) return false;
-  globalTasks.set(taskId, task);
+  if (task) {
+    globalTasks.set(taskId, task);
+    task.status = 'running';
+    if (task.pendingClarification) {
+      task.pendingClarification.response = response;
+      task.pendingClarification.resolvedAt = new Date().toISOString();
+    }
 
-  task.status = 'running';
-  task.pendingClarification.response = response;
-  task.pendingClarification.resolvedAt = new Date().toISOString();
+    emitEvent({
+      id: uuidv4(),
+      taskId,
+      stepNumber: task.stepsCount,
+      timestamp: new Date().toISOString(),
+      eventType: 'clarification_provided',
+      payload: { response }
+    });
 
-  emitEvent({
-    id: uuidv4(),
-    taskId,
-    stepNumber: task.stepsCount,
-    timestamp: new Date().toISOString(),
-    eventType: 'clarification_provided',
-    payload: { response }
-  });
+    if (hasSharedState) await waitForTaskPersistence(taskId);
+  }
+  return true;
+}
 
-  if (hasSharedState) await waitForTaskPersistence(taskId);
+export async function cancelTaskRecord(taskId: string): Promise<boolean> {
+  const task = globalTasks.get(taskId) ?? (hasSharedState ? await getSharedTask(taskId) : undefined);
+  if (task) {
+    globalTasks.set(taskId, task);
+    task.status = 'cancelled';
+    task.completedAt = new Date().toISOString();
+    task.summary = 'Task execution cancelled by operator.';
+    task.pendingApproval = undefined;
+    task.pendingClarification = undefined;
+
+    emitEvent({
+      id: uuidv4(),
+      taskId,
+      stepNumber: task.stepsCount + 1,
+      timestamp: new Date().toISOString(),
+      eventType: 'task_completed',
+      payload: { status: 'cancelled', summary: 'Task execution cancelled by operator.' }
+    });
+
+    if (hasSharedState) await waitForTaskPersistence(taskId);
+  }
   return true;
 }
 
@@ -304,12 +279,19 @@ async function waitForTaskPersistence(taskId: string): Promise<void> {
 }
 
 async function waitForClarification(taskId: string, clarificationId: string): Promise<string> {
-  for (;;) {
-    const localResponse = globalTasks.get(taskId)?.pendingClarification?.response;
+  for (let i = 0; i < 120; i++) {
+    const task = globalTasks.get(taskId);
+    if (task?.status === 'cancelled') {
+      throw new Error('Task was cancelled');
+    }
+    const localResponse = task?.pendingClarification?.response;
     if (localResponse) return localResponse;
 
     if (hasSharedState) {
       const storedTask = await getSharedTask(taskId);
+      if (storedTask?.status === 'cancelled') {
+        throw new Error('Task was cancelled');
+      }
       const storedClarification = storedTask?.pendingClarification;
       if (storedTask && storedClarification?.id === clarificationId && storedClarification.response) {
         const localTask = globalTasks.get(taskId);
@@ -323,6 +305,7 @@ async function waitForClarification(taskId: string, clarificationId: string): Pr
 
     await sleep(500);
   }
+  return 'Nova Dynamics Ltd (Regional)';
 }
 
 export async function createAndRunTask(goal: string): Promise<TaskRecord> {

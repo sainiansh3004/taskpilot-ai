@@ -64,14 +64,21 @@ export function ClarificationDialog({ clarification, onResolve }: ClarificationD
               type="text"
               value={response}
               onChange={(e) => setResponse(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && response.trim() && !submitting) {
+                  e.preventDefault();
+                  handleSubmit(response);
+                }
+              }}
               placeholder="e.g. Process Nova Dynamics Ltd..."
               disabled={submitting}
               className="flex-1 rounded-lg bg-surfaceMuted border border-border px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
             />
             <button
+              type="button"
               onClick={() => handleSubmit(response)}
               disabled={submitting || !response.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-background text-xs font-semibold disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-background text-xs font-semibold disabled:opacity-50 cursor-pointer"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span>Reply</span>
