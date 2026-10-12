@@ -1,8 +1,8 @@
 import type { TaskRecord, ExecutionEvent, DashboardStats } from '../types';
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '/backend-api').replace(/\/$/, '');
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$/, '');
 
-export const PORTAL_BASE = (process.env.NEXT_PUBLIC_PORTAL_URL || '/portal-api').replace(/\/$/, '');
+export const PORTAL_BASE = (process.env.NEXT_PUBLIC_PORTAL_URL || '/api/portal').replace(/\/$/, '');
 
 const SCREENSHOT_BASE = process.env.NEXT_PUBLIC_API_URL
   ? API_BASE.replace(/\/api$/, '')
