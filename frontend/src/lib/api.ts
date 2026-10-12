@@ -9,7 +9,12 @@ const SCREENSHOT_BASE = process.env.NEXT_PUBLIC_API_URL
   : '';
 
 export function getScreenshotUrl(relativePath: string): string {
-  return `${SCREENSHOT_BASE}${relativePath}`;
+  if (!relativePath) return '';
+  const cleanPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+  if (SCREENSHOT_BASE) {
+    return `${SCREENSHOT_BASE}${cleanPath}`;
+  }
+  return cleanPath;
 }
 
 export async function fetchStats(): Promise<DashboardStats> {
