@@ -8,7 +8,8 @@ build/
 *.sqlite-wal
 *.sqlite-shm
 data/
-screenshots/
+/screenshots/
+!frontend/public/screenshots/
 .env
 .env.local
 .DS_Store
