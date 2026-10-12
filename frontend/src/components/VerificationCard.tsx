@@ -12,8 +12,8 @@ interface VerificationCardProps {
 export function VerificationCard({ task }: VerificationCardProps) {
   const isComplete = ['succeeded', 'partially_succeeded', 'failed', 'budget_exhausted'].includes(task.status);
   const evidence = task.evidence || {};
-  const conditions = evidence.checkedConditions || [];
-  const savedRecord = evidence.savedRecord;
+  const conditions = evidence.checkedConditions || evidence.verification?.checks || [];
+  const savedRecord = evidence.savedRecord || (evidence.recordId ? { id: evidence.recordId, invoiceNumber: evidence.invoiceNumber, companyName: evidence.companyName || evidence.vendor, amount: evidence.amount, dueDate: evidence.dueDate } : null);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

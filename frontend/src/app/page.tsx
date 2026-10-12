@@ -75,13 +75,65 @@ export default function Home() {
           return [...prev, evt];
         });
 
-        // Refresh task metadata on key events
+        // Instantly reflect state changes from event payload
+        if (evt.eventType === 'task_completed') {
+          const finalStatus = (evt.payload.status as any) || 'succeeded';
+          setActiveTask(prev => prev ? {
+            ...prev,
+            status: finalStatus,
+            summary: evt.payload.summary,
+            evidence: evt.payload.evidence,
+            completedAt: evt.timestamp
+          } : null);
+          setTasks(prev => prev.map(item => item.id === taskId ? {
+            ...item,
+            status: finalStatus,
+            summary: evt.payload.summary,
+            evidence: evt.payload.evidence,
+            completedAt: evt.timestamp
+          } : item));
+        } else if (evt.eventType === 'verification_passed' || evt.eventType === 'verification_failed') {
+          setActiveTask(prev => prev ? {
+            ...prev,
+            evidence: {
+              ...(prev.evidence || {}),
+              verification: evt.payload.verification || evt.payload,
+              checkedConditions: evt.payload.verification?.checks || prev.evidence?.checkedConditions
+            }
+          } : null);
+        } else if (evt.eventType === 'approval_requested') {
+          setActiveTask(prev => prev ? {
+            ...prev,
+            status: 'awaiting_approval',
+            pendingApproval: evt.payload as any
+          } : null);
+        } else if (evt.eventType === 'clarification_requested') {
+          setActiveTask(prev => prev ? {
+            ...prev,
+            status: 'awaiting_clarification',
+            pendingClarification: evt.payload as any
+          } : null);
+        } else if (evt.eventType === 'plan_created') {
+          setActiveTask(prev => prev ? {
+            ...prev,
+            plan: evt.payload.plan
+          } : null);
+        } else if (evt.eventType === 'subgoal_set') {
+          setActiveTask(prev => prev ? {
+            ...prev,
+            currentSubgoal: evt.payload.subgoal
+          } : null);
+        }
+
+        // Also attempt background sync
         if (['task_completed', 'approval_requested', 'clarification_requested', 'verification_passed', 'verification_failed'].includes(evt.eventType)) {
           fetchTask(taskId).then((t) => {
-            setActiveTask(t);
-            setTasks((prev) => prev.map(item => item.id === t.id ? t : item));
-            fetchStats().then(s => setStats(s)).catch(() => {});
+            if (t) {
+              setActiveTask(t);
+              setTasks((prev) => prev.map(item => item.id === t.id ? t : item));
+            }
           }).catch(() => {});
+          fetchStats().then(s => setStats(s)).catch(() => {});
         }
       } catch (err) {
         console.error('SSE parse error:', err);
@@ -159,11 +211,6 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
         {/* Metric Summary Cards */}
         <DashboardStats stats={stats} />
-        {stats?.statePersistence === 'instance-local' && (
-          <div role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            Shared task storage is not connected. Tasks may not appear consistently between requests. Connect Upstash Redis in Vercel to enable reliable history.
-          </div>
-        )}
 
         {/* Task Objective Submitter */}
         <TaskSubmitter onSubmit={handleTaskSubmit} isLoading={isSubmitting} />
