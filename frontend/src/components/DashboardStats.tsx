@@ -12,7 +12,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
   const cards = [
     {
       label: 'Total Tasks',
-      value: stats?.totalTasks ?? '--',
+      value: stats?.totalTasks ?? 0,
       icon: Layers,
       color: 'text-slate-300',
       bg: 'bg-slate-800/40',
@@ -20,7 +20,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     },
     {
       label: 'Verified Success',
-      value: stats?.verified ?? '--',
+      value: stats?.verified ?? 0,
       icon: CheckCircle2,
       color: 'text-emerald-400',
       bg: 'bg-emerald-950/20',
@@ -28,7 +28,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     },
     {
       label: 'Failed / Halted',
-      value: stats?.failed ?? '--',
+      value: stats?.failed ?? 0,
       icon: XCircle,
       color: 'text-rose-400',
       bg: 'bg-rose-950/20',
@@ -36,7 +36,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     },
     {
       label: 'Pending Approvals',
-      value: stats?.pendingApproval ?? '--',
+      value: stats?.pendingApproval ?? 0,
       icon: AlertTriangle,
       color: 'text-amber-400',
       bg: 'bg-amber-950/20',
@@ -44,7 +44,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     },
     {
       label: 'Awaiting Clarification',
-      value: stats?.pendingClarification ?? '--',
+      value: stats?.pendingClarification ?? 0,
       icon: Clock,
       color: 'text-cyan-400',
       bg: 'bg-cyan-950/20',

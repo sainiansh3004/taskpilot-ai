@@ -67,6 +67,12 @@ export async function cancelTask(taskId: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to cancel task');
 }
 
+export async function clearAllTasks(): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/tasks`, { method: 'DELETE' });
+  } catch {}
+}
+
 export async function approveTask(taskId: string, approved: boolean): Promise<void> {
   const res = await fetch(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/approval`, {
     method: 'POST',

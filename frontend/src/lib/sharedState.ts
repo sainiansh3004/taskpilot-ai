@@ -80,6 +80,17 @@ export async function getSharedPortalRecords<T>(): Promise<T[] | undefined> {
   return value ? JSON.parse(value) as T[] : undefined;
 }
 
+export async function clearSharedTasks(): Promise<void> {
+  if (!redisUrl || !redisToken) return;
+  try {
+    const ids = await redisCommand<string[]>('SMEMBERS', 'taskpilot:task-ids').catch(() => []);
+    const keysToDelete = ['taskpilot:task-ids', 'taskpilot:portal-records', ...(ids || []).map(taskKey), ...(ids || []).map(eventsKey)];
+    if (keysToDelete.length > 0) {
+      await redisCommand('DEL', ...keysToDelete).catch(() => {});
+    }
+  } catch {}
+}
+
 async function redisPipeline(commands: string[][]): Promise<void> {
   if (!redisBaseUrl || !redisToken) {
     throw new Error('Shared task storage is not configured.');

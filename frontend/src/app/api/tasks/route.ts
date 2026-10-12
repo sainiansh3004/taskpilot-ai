@@ -1,5 +1,5 @@
 import { after, NextResponse } from 'next/server';
-import { createAndRunTask, readTasks, waitForTaskExecution } from '../../../lib/serverlessAgent';
+import { createAndRunTask, readTasks, resetAllTasks, waitForTaskExecution } from '../../../lib/serverlessAgent';
 
 export const maxDuration = 300;
 
@@ -30,3 +30,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+  try {
+    await resetAllTasks();
+    return NextResponse.json({ success: true, message: 'All tasks cleared' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to clear tasks';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+

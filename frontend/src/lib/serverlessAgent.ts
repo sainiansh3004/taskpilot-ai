@@ -6,6 +6,7 @@ function uuidv4(): string {
 }
 import type { TaskRecord, ExecutionEvent, DashboardStats, PendingClarification } from '../types';
 import {
+  clearSharedTasks,
   getSharedEvents,
   getSharedPortalRecords,
   getSharedTask,
@@ -22,6 +23,17 @@ const eventSubscribers = new Map<string, Set<(event: ExecutionEvent) => void>>()
 const taskExecutions = new Map<string, Promise<void>>();
 const persistenceQueues = new Map<string, Promise<void>>();
 const persistenceErrors = new Map<string, Error>();
+
+export async function resetAllTasks(): Promise<void> {
+  globalTasks.clear();
+  globalEvents.clear();
+  taskExecutions.clear();
+  persistenceQueues.clear();
+  persistenceErrors.clear();
+  if (hasSharedState) {
+    await clearSharedTasks();
+  }
+}
 
 // Seed default portal data
 export const portalInvoices = [

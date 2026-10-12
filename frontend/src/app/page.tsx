@@ -11,8 +11,7 @@ import { ClarificationDialog } from '../components/ClarificationDialog';
 import { PortalModal } from '../components/PortalModal';
 import {
   API_BASE,
-  fetchStats,
-  fetchTasks,
+  clearAllTasks,
   fetchTask,
   fetchTaskEvents,
   createTask,
@@ -24,7 +23,6 @@ import type { TaskRecord, ExecutionEvent, DashboardStats as StatsType } from '..
 import { History, XCircle, RefreshCw, Cpu, CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
-  const [stats, setStats] = useState<StatsType | null>(null);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [activeTask, setActiveTask] = useState<TaskRecord | null>(null);
   const [events, setEvents] = useState<ExecutionEvent[]>([]);
@@ -32,73 +30,37 @@ export default function Home() {
   const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const loadInitialData = async () => {
-    try {
-      // 1. Restore cached tasks from localStorage if available (clean up any legacy seed demos)
-      try {
-        const cached = typeof window !== 'undefined' ? localStorage.getItem('taskpilot_saved_tasks') : null;
-        if (cached) {
-          const localTasks: TaskRecord[] = JSON.parse(cached);
-          const userTasks = (localTasks || []).filter(t => !t.id.startsWith('task_demo_'));
-          if (Array.isArray(userTasks) && userTasks.length > 0) {
-            setTasks(userTasks);
-            if (!activeTask) {
-              selectTask(userTasks[0]);
-            }
-          } else {
-            localStorage.removeItem('taskpilot_saved_tasks');
-          }
-        }
-      } catch {}
-
-      // 2. Fetch server-side stats & tasks
-      const [s, tList] = await Promise.all([
-        fetchStats().catch(() => null),
-        fetchTasks().catch(() => [])
-      ]);
-      const validServerTasks = (tList || []).filter(t => !t.id.startsWith('task_demo_'));
-      if (s) setStats(s);
-      if (validServerTasks && validServerTasks.length > 0) {
-        setTasks((prev) => {
-          const combined = [...prev];
-          for (const serverTask of validServerTasks) {
-            const idx = combined.findIndex(t => t.id === serverTask.id);
-            if (idx >= 0) {
-              combined[idx] = serverTask;
-            } else {
-              combined.push(serverTask);
-            }
-          }
-          return combined;
-        });
-        if (!activeTask) {
-          selectTask(validServerTasks[0]);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading initial data:', err);
-    }
-  };
-
   useEffect(() => {
-    loadInitialData();
-    const interval = setInterval(() => {
-      fetchStats().then(s => setStats(s)).catch(() => {});
-    }, 10000);
-    return () => clearInterval(interval);
+    // When the link is opened, refreshed, or restarted, always show 0 tasks and clean session state
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('taskpilot_saved_tasks');
+        sessionStorage.removeItem('taskpilot_saved_tasks');
+      } catch {}
+    }
+    setTasks([]);
+    setActiveTask(null);
+    setEvents([]);
   }, []);
 
-  // Persist tasks in localStorage whenever tasks change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const userTasks = tasks.filter(t => !t.id.startsWith('task_demo_'));
-      if (userTasks.length > 0) {
-        try {
-          localStorage.setItem('taskpilot_saved_tasks', JSON.stringify(userTasks));
-        } catch {}
-      }
+  const handleClearTasks = async () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-  }, [tasks]);
+    setTasks([]);
+    setActiveTask(null);
+    setEvents([]);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('taskpilot_saved_tasks');
+        sessionStorage.removeItem('taskpilot_saved_tasks');
+      } catch {}
+    }
+    try {
+      await clearAllTasks();
+    } catch {}
+  };
 
   // Dynamically compute effective stats starting from 0 initially and counting executed tasks
   const effectiveStats: StatsType = {
@@ -184,7 +146,6 @@ export default function Home() {
               setTasks((prev) => prev.map(item => item.id === t.id ? t : item));
             }
           }).catch(() => {});
-          fetchStats().then(s => setStats(s)).catch(() => {});
         }
       } catch (err) {
         console.error('SSE parse error:', err);
@@ -221,9 +182,8 @@ export default function Home() {
       const task = await createTask(goal);
       setActiveTask(task);
       setEvents([]);
-      setTasks(prev => [task, ...prev]);
+      setTasks(prev => [task, ...prev.filter(t => t.id !== task.id)]);
       connectSSE(task.id);
-      fetchStats().then(s => setStats(s)).catch(() => {});
     } finally {
       setIsSubmitting(false);
     }
@@ -536,42 +496,59 @@ export default function Home() {
                   <History className="h-4 w-4 text-primary" />
                   <h3 className="font-semibold text-slate-100 text-xs uppercase tracking-wider">Execution History</h3>
                 </div>
-                <span className="text-[11px] text-slate-400">{tasks.length} Saved Tasks</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400">{tasks.length} Saved Tasks</span>
+                  {tasks.length > 0 && (
+                    <button
+                      onClick={handleClearTasks}
+                      className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors font-medium px-1.5 py-0.5 rounded bg-surfaceMuted hover:bg-rose-950/30 border border-border"
+                      title="Clear all tasks in session"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                {tasks.map(t => {
-                  const isSelected = activeTask?.id === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => selectTask(t)}
-                      className={`w-full text-left p-2.5 rounded-lg border transition-all text-xs flex flex-col gap-1 ${
-                        isSelected
-                          ? 'bg-primary/10 border-primary/50 text-slate-100'
-                          : 'bg-surfaceMuted/30 hover:bg-surfaceMuted border-border/60 text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <code className="text-[10px] text-cyan-400 font-mono">{t.id}</code>
-                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
-                          t.status === 'succeeded' ? 'bg-emerald-500/20 text-emerald-400' :
-                          t.status === 'failed' ? 'bg-rose-500/20 text-rose-400' :
-                          t.status === 'awaiting_approval' ? 'bg-amber-500/20 text-amber-400' :
-                          t.status === 'awaiting_clarification' ? 'bg-cyan-500/20 text-cyan-400' :
-                          'bg-blue-500/20 text-blue-400'
-                        }`}>
-                          {t.status}
-                        </span>
-                      </div>
-                      <p className="line-clamp-2 text-slate-300 text-[11px] font-medium leading-relaxed">{t.goal}</p>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mt-0.5">
-                        <span>{new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        <span>{t.stepsCount} steps</span>
-                      </div>
-                    </button>
-                  );
-                })}
+                {tasks.length === 0 ? (
+                  <div className="py-8 text-center text-slate-500 text-xs">
+                    No tasks executed in this session. Submit a task above to begin.
+                  </div>
+                ) : (
+                  tasks.map(t => {
+                    const isSelected = activeTask?.id === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => selectTask(t)}
+                        className={`w-full text-left p-2.5 rounded-lg border transition-all text-xs flex flex-col gap-1 ${
+                          isSelected
+                            ? 'bg-primary/10 border-primary/50 text-slate-100'
+                            : 'bg-surfaceMuted/30 hover:bg-surfaceMuted border-border/60 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <code className="text-[10px] text-cyan-400 font-mono">{t.id}</code>
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                            t.status === 'succeeded' ? 'bg-emerald-500/20 text-emerald-400' :
+                            t.status === 'failed' ? 'bg-rose-500/20 text-rose-400' :
+                            t.status === 'awaiting_approval' ? 'bg-amber-500/20 text-amber-400' :
+                            t.status === 'awaiting_clarification' ? 'bg-cyan-500/20 text-cyan-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </div>
+                        <p className="line-clamp-2 text-slate-300 text-[11px] font-medium leading-relaxed">{t.goal}</p>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 mt-0.5">
+                          <span>{new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{t.stepsCount} steps</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
