@@ -18,7 +18,7 @@ export class OpenAIProvider implements LLMProvider {
   public async generateNextAction(
     goal: string,
     history: LLMMessage[],
-    availableTools: Array<{ name: string; description: string; inputSchema: any }>,
+    availableTools: Array<{ name: string; description: string; inputSchema: any; openAISchema?: any }>,
     memory: Record<string, any>
   ): Promise<LLMDecision> {
     const systemPrompt = `You are TaskPilot AI, an autonomous enterprise AI employee.
@@ -35,18 +35,23 @@ Operational Rules:
 7. Consequential write actions require authorization: you may call request_approval first.
 8. Once you have completed all required actions and verified the state, return your final answer.`;
 
-    const openAITools = availableTools.map(t => ({
-      type: 'function' as const,
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: {
-          type: 'object',
-          properties: t.inputSchema?.shape || {},
-          required: Object.keys(t.inputSchema?.shape || {})
-        }
+    const openAITools = availableTools.map(t => {
+      if (t.openAISchema) {
+        return t.openAISchema;
       }
-    }));
+      return {
+        type: 'function' as const,
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      };
+    });
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },

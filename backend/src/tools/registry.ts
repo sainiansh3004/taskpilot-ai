@@ -27,20 +27,32 @@ export class ToolRegistry {
       const required: string[] = [];
 
       for (const [key, value] of Object.entries(shape)) {
-        const field = value as any;
-        const typeName = field._def.typeName;
+        let field = value as any;
+        let isOptional = false;
+
+        if (field._def?.typeName === 'ZodOptional') {
+          isOptional = true;
+          field = field._def.innerType;
+        } else if (field._def?.typeName === 'ZodDefault') {
+          isOptional = true;
+          field = field._def.innerType;
+        } else if (typeof field.isOptional === 'function' && field.isOptional()) {
+          isOptional = true;
+        }
+
+        const typeName = field._def?.typeName;
         let jsonType = 'string';
         if (typeName === 'ZodNumber') jsonType = 'number';
         if (typeName === 'ZodBoolean') jsonType = 'boolean';
         if (typeName === 'ZodArray') jsonType = 'array';
-        if (typeName === 'ZodObject') jsonType = 'object';
+        if (typeName === 'ZodObject' || typeName === 'ZodRecord') jsonType = 'object';
 
         properties[key] = {
           type: jsonType,
           description: field.description || key
         };
 
-        if (!field.isOptional()) {
+        if (!isOptional) {
           required.push(key);
         }
       }

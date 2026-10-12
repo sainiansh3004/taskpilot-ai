@@ -31,7 +31,7 @@ export interface LLMProvider {
   generateNextAction: (
     goal: string,
     history: LLMMessage[],
-    availableTools: Array<{ name: string; description: string; inputSchema: any }>,
+    availableTools: Array<{ name: string; description: string; inputSchema: any; openAISchema?: any }>,
     memory: Record<string, any>
   ) => Promise<LLMDecision>;
 }

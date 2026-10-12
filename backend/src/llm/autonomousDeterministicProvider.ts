@@ -6,7 +6,7 @@ export class AutonomousDeterministicProvider implements LLMProvider {
   public async generateNextAction(
     goal: string,
     history: LLMMessage[],
-    _availableTools: Array<{ name: string; description: string; inputSchema: any }>,
+    _availableTools: Array<{ name: string; description: string; inputSchema: any; openAISchema?: any }>,
     memory: Record<string, any>
   ): Promise<LLMDecision> {
     const goalLower = goal.toLowerCase();

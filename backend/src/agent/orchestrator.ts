@@ -225,10 +225,12 @@ export class AgentOrchestrator {
     let consecutiveSameActionCount = 0;
     let consecutiveActionRetries = 0;
 
-    const availableToolSchemas = this.tools.getAll().map(t => ({
+    const openAISchemas = this.tools.getOpenAIToolSchemas();
+    const availableToolSchemas = this.tools.getAll().map((t, idx) => ({
       name: t.name,
       description: t.description,
-      inputSchema: t.inputSchema
+      inputSchema: t.inputSchema,
+      openAISchema: openAISchemas[idx]
     }));
 
     try {
