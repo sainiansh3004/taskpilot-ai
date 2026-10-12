@@ -15,8 +15,61 @@ import {
   saveSharedTask
 } from './sharedState';
 
+const seedTask1: TaskRecord = {
+  id: 'task_demo_acme',
+  goal: 'Find the latest invoice from Acme Ltd, extract its amount and due date, enter it into the internal invoice system, verify the saved record, and report the outcome.',
+  status: 'succeeded',
+  createdAt: '2024-05-10T14:20:00Z',
+  updatedAt: '2024-05-10T14:20:15Z',
+  completedAt: '2024-05-10T14:20:15Z',
+  stepsCount: 5,
+  maxSteps: 15,
+  retryCount: 0,
+  summary: 'Successfully located latest invoice INV-2024-098 for Acme Ltd, extracted amount ($3,890.50) and due date (2024-06-10), entered into accounting ledger, and independently verified.',
+  evidence: {
+    recordId: 'rec-17443920-acme',
+    invoiceNumber: 'INV-2024-098',
+    companyName: 'Acme Ltd',
+    amount: 3890.50,
+    dueDate: '2024-06-10',
+    verification: {
+      verified: true,
+      score: 1.0,
+      checks: [
+        { name: 'Ledger Record Exists in Storage', passed: true, details: 'Found record ID: rec-17443920-acme' },
+        { name: 'Company Name Matches Source', passed: true, details: 'Acme Ltd matches source invoice' },
+        { name: 'Amount Matches Source Exactly', passed: true, details: '$3,890.50 matches to the cent' },
+        { name: 'Due Date Matches Source', passed: true, details: '2024-06-10 matches source invoice' },
+        { name: 'Latest Invoice Selected', passed: true, details: 'Verified INV-2024-098 is most recent invoice' }
+      ]
+    }
+  }
+};
+
+const seedTask2: TaskRecord = {
+  id: 'task_demo_umbrella',
+  goal: 'Process invoice for Umbrella Inc and record in system.',
+  status: 'succeeded',
+  createdAt: '2024-05-10T13:10:00Z',
+  updatedAt: '2024-05-10T13:10:05Z',
+  completedAt: '2024-05-10T13:10:05Z',
+  stepsCount: 2,
+  maxSteps: 15,
+  retryCount: 0,
+  summary: 'Duplicate detected: Invoice INV-2024-301 for Umbrella Inc was ALREADY recorded in ledger (Record ID: rec-existing-umbrella). Skipped write to protect financial ledger integrity.',
+  evidence: {
+    duplicateDetected: true,
+    existingRecordId: 'rec-existing-umbrella',
+    invoiceNumber: 'INV-2024-301',
+    verification: { verified: true, score: 1.0 }
+  }
+};
+
 // Process-local state supports development; shared Redis is authoritative when configured.
-const globalTasks = new Map<string, TaskRecord>();
+const globalTasks = new Map<string, TaskRecord>([
+  [seedTask1.id, seedTask1],
+  [seedTask2.id, seedTask2]
+]);
 const globalEvents = new Map<string, ExecutionEvent[]>();
 const eventSubscribers = new Map<string, Set<(event: ExecutionEvent) => void>>();
 const taskExecutions = new Map<string, Promise<void>>();

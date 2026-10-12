@@ -34,14 +34,40 @@ export default function Home() {
 
   const loadInitialData = async () => {
     try {
+      // 1. Restore cached tasks from localStorage if available
+      try {
+        const cached = typeof window !== 'undefined' ? localStorage.getItem('taskpilot_saved_tasks') : null;
+        if (cached) {
+          const localTasks: TaskRecord[] = JSON.parse(cached);
+          if (Array.isArray(localTasks) && localTasks.length > 0) {
+            setTasks(localTasks);
+            if (!activeTask) {
+              selectTask(localTasks[0]);
+            }
+          }
+        }
+      } catch {}
+
+      // 2. Fetch server-side stats & tasks
       const [s, tList] = await Promise.all([
         fetchStats().catch(() => null),
         fetchTasks().catch(() => [])
       ]);
       if (s) setStats(s);
-      if (tList) {
-        setTasks(tList);
-        if (tList.length > 0 && !activeTask) {
+      if (tList && tList.length > 0) {
+        setTasks((prev) => {
+          const combined = [...prev];
+          for (const serverTask of tList) {
+            const idx = combined.findIndex(t => t.id === serverTask.id);
+            if (idx >= 0) {
+              combined[idx] = serverTask;
+            } else {
+              combined.push(serverTask);
+            }
+          }
+          return combined;
+        });
+        if (!activeTask) {
           selectTask(tList[0]);
         }
       }
@@ -57,6 +83,24 @@ export default function Home() {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Persist tasks in localStorage whenever tasks change
+  useEffect(() => {
+    if (tasks.length > 0 && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('taskpilot_saved_tasks', JSON.stringify(tasks));
+      } catch {}
+    }
+  }, [tasks]);
+
+  // Dynamically compute effective stats merging server stats and active client task array
+  const effectiveStats: StatsType = {
+    totalTasks: Math.max(stats?.totalTasks || 0, tasks.length),
+    verified: Math.max(stats?.verified || 0, tasks.filter(t => t.status === 'succeeded').length),
+    failed: Math.max(stats?.failed || 0, tasks.filter(t => ['failed', 'budget_exhausted'].includes(t.status)).length),
+    pendingApproval: Math.max(stats?.pendingApproval || 0, tasks.filter(t => t.status === 'awaiting_approval').length),
+    pendingClarification: Math.max(stats?.pendingClarification || 0, tasks.filter(t => t.status === 'awaiting_clarification').length),
+  };
 
   const connectSSE = (taskId: string) => {
     if (eventSourceRef.current) {
@@ -210,7 +254,7 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
         {/* Metric Summary Cards */}
-        <DashboardStats stats={stats} />
+        <DashboardStats stats={effectiveStats} />
 
         {/* Task Objective Submitter */}
         <TaskSubmitter onSubmit={handleTaskSubmit} isLoading={isSubmitting} />
