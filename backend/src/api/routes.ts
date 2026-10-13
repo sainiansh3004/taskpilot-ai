@@ -47,6 +47,16 @@ export function createApiRouter(
     }
   });
 
+  // 2b. Reset all tasks
+  router.delete('/tasks', (_req, res) => {
+    try {
+      repo.clearAllTasks();
+      res.json({ success: true, message: 'All tasks and execution history cleared.' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // 3. Get single task by ID
   router.get('/tasks/:id', (req, res) => {
     try {
@@ -100,8 +110,8 @@ export function createApiRouter(
     });
   });
 
-  // 6. Resolve human approval gate
-  router.post('/tasks/:id/approve', async (req, res) => {
+  // 6. Resolve human approval gate (supports both /approve and /approval)
+  const handleApproval = async (req: any, res: any) => {
     try {
       const { approved } = req.body;
       if (typeof approved !== 'boolean') {
@@ -121,7 +131,10 @@ export function createApiRouter(
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
-  });
+  };
+
+  router.post('/tasks/:id/approve', handleApproval);
+  router.post('/tasks/:id/approval', handleApproval);
 
   // 7. Provide human clarification
   router.post('/tasks/:id/clarify', async (req, res) => {

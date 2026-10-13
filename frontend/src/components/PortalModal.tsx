@@ -62,7 +62,7 @@ export function PortalModal({ isOpen, onClose }: PortalModalProps) {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <a
-              href={PORTAL_BASE}
+              href="/portal"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-surface border border-border text-xs text-primary hover:text-cyan-300"

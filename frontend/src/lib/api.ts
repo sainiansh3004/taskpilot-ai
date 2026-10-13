@@ -79,6 +79,15 @@ export async function approveTask(taskId: string, approved: boolean): Promise<vo
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ approved })
   });
+  if (res.status === 404) {
+    const resAlt = await fetch(`${API_BASE}/tasks/${encodeURIComponent(taskId)}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approved })
+    });
+    if (!resAlt.ok) throw new Error('Failed to send approval decision');
+    return;
+  }
   if (!res.ok) throw new Error('Failed to send approval decision');
 }
 
@@ -92,14 +101,18 @@ export async function clarifyTask(taskId: string, response: string): Promise<voi
 }
 
 export async function fetchPortalInvoices(): Promise<any[]> {
-  const res = await fetch(`${PORTAL_BASE}/api/invoices`);
+  const isInternal = PORTAL_BASE.includes('/api/portal');
+  const url = isInternal ? `${PORTAL_BASE}/invoices` : `${PORTAL_BASE}/api/invoices`;
+  const res = await fetch(url);
   if (!res.ok) return [];
   const data = await res.json();
   return data.invoices || [];
 }
 
 export async function fetchPortalRecords(): Promise<any[]> {
-  const res = await fetch(`${PORTAL_BASE}/api/records`);
+  const isInternal = PORTAL_BASE.includes('/api/portal');
+  const url = isInternal ? `${PORTAL_BASE}/records` : `${PORTAL_BASE}/api/records`;
+  const res = await fetch(url);
   if (!res.ok) return [];
   const data = await res.json();
   return data.records || [];

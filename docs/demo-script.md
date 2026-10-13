@@ -88,3 +88,19 @@ Open `http://localhost:3000` to access the **TaskPilot AI Control Center**.
    - Extracts `#invoices-table` rows into structured JSON.
    - Automatically populates the form in the DOM.
    - Captures a full-page screenshot saved to `./screenshots/` and embedded directly in the Verification Card as visual evidence!
+
+---
+
+### Scenario 6: Human Authorization & Approval Rejection Protection
+1. **Action**: Click:
+   > **🔒 Human Approval Gate**
+   > *"Find the latest invoice from Acme Ltd, require human approval before entering record, and verify."*
+2. **Click**: **Execute Task**.
+3. **What to Observe**:
+   - The agent decomposes the goal, discovers the latest invoice, and pauses at step 3.5.
+   - Status transitions to `awaiting_approval`.
+   - The Approval Modal displays: action `create_invoice_record`, details (vendor, amount, due date), and safety rationale.
+   - Click **Reject**:
+   - The agent halts immediately without executing the consequential write action!
+   - Decoupled verification confirms no record was created in SQLite ledger (HTTP 404).
+   - Truthful outcome reported: *"Operation aborted: Consequential action was rejected by operator. Protected action was NOT executed."*

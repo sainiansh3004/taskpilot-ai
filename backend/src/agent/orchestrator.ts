@@ -293,7 +293,18 @@ export class AgentOrchestrator {
 
           const verification = await this.verificationEngine.verifyTaskCompletion(task.goal, memory);
 
-          if (verification.verified) {
+          if (memory.approvalRejected) {
+            this.emitEvent({
+              id: uuidv4(),
+              taskId,
+              stepNumber: task.stepsCount,
+              timestamp: new Date().toISOString(),
+              eventType: 'verification_passed',
+              payload: { verification }
+            });
+
+            await this.finishTask(taskId, 'failed', decision.finalAnswer || 'Task halted: Operator rejected authorization.', memory, verification.evidence);
+          } else if (verification.verified) {
             this.emitEvent({
               id: uuidv4(),
               taskId,
@@ -338,20 +349,32 @@ export class AgentOrchestrator {
         }
         callSignatures.push(callSig);
 
-        if (consecutiveSameActionCount >= 3) {
+        const isConsecutiveRepeat = consecutiveSameActionCount >= 3;
+        const isOscillating = callSignatures.length >= 6 &&
+          callSignatures[callSignatures.length - 1] === callSignatures[callSignatures.length - 3] &&
+          callSignatures[callSignatures.length - 3] === callSignatures[callSignatures.length - 5] &&
+          callSignatures[callSignatures.length - 2] === callSignatures[callSignatures.length - 4] &&
+          callSignatures[callSignatures.length - 4] === callSignatures[callSignatures.length - 6];
+
+        if (isConsecutiveRepeat || isOscillating) {
           this.emitEvent({
             id: uuidv4(),
             taskId,
             stepNumber: task.stepsCount,
             timestamp: new Date().toISOString(),
             eventType: 'loop_detected',
-            payload: { toolName, toolArgs, repeatCount: consecutiveSameActionCount }
+            payload: {
+              toolName,
+              toolArgs,
+              repeatCount: consecutiveSameActionCount,
+              pattern: isOscillating ? 'oscillating_cycle' : 'consecutive_repeat'
+            }
           });
 
           await this.finishTask(
             taskId,
             'failed',
-            `Loop detected: Agent repeated identical action '${toolName}' 3 times without progress. Halting loop.`,
+            `Loop detected: Agent repeated ${isOscillating ? 'an oscillating action cycle' : `identical action '${toolName}' ${consecutiveSameActionCount} times`} without productive progress. Halting loop.`,
             memory
           );
           break;
@@ -446,42 +469,106 @@ export class AgentOrchestrator {
 
         let toolResult = await this.tools.executeTool(toolName, toolArgs, context);
 
-        // Retry logic for transient errors
-        if (!toolResult.success && consecutiveActionRetries < this.config.maxRetriesPerAction) {
-          const isTransient = toolResult.error?.includes('500') ||
-                              toolResult.error?.includes('TIMEOUT') ||
-                              toolResult.error?.includes('rate limit');
+        // Bounded retries with backoff for transient failures (per-action tracker)
+        let actionRetryCount = 0;
+        const isTransientError = (err?: string) => {
+          if (!err) return false;
+          const e = err.toLowerCase();
+          return (
+            e.includes('500') ||
+            e.includes('502') ||
+            e.includes('503') ||
+            e.includes('504') ||
+            e.includes('timeout') ||
+            e.includes('rate limit') ||
+            e.includes('429') ||
+            e.includes('econnreset') ||
+            e.includes('etimedout')
+          );
+        };
 
-          if (isTransient) {
-            consecutiveActionRetries += 1;
-            task.retryCount += 1;
-            this.repo.updateTask(taskId, { retryCount: task.retryCount });
+        while (!toolResult.success && isTransientError(toolResult.error) && actionRetryCount < this.config.maxRetriesPerAction) {
+          actionRetryCount += 1;
+          task.retryCount += 1;
+          this.repo.updateTask(taskId, { retryCount: task.retryCount });
 
-            const backoffMs = Math.min(1000 * Math.pow(2, consecutiveActionRetries - 1), 4000);
-            this.emitEvent({
-              id: uuidv4(),
-              taskId,
-              stepNumber: task.stepsCount,
-              timestamp: new Date().toISOString(),
-              eventType: 'retry_attempted',
-              payload: {
-                toolName,
-                attempt: consecutiveActionRetries,
-                maxRetries: this.config.maxRetriesPerAction,
-                error: toolResult.error,
-                backoffMs
-              }
-            });
+          const backoffMs = Math.min(250 * Math.pow(2, actionRetryCount - 1), 2000);
+          this.emitEvent({
+            id: uuidv4(),
+            taskId,
+            stepNumber: task.stepsCount,
+            timestamp: new Date().toISOString(),
+            eventType: 'retry_attempted',
+            payload: {
+              toolName,
+              attempt: actionRetryCount,
+              maxRetries: this.config.maxRetriesPerAction,
+              error: toolResult.error,
+              backoffMs
+            }
+          });
 
-            await new Promise(r => setTimeout(r, backoffMs));
-            toolResult = await this.tools.executeTool(toolName, toolArgs, context);
-          }
+          await new Promise(r => setTimeout(r, backoffMs));
+          toolResult = await this.tools.executeTool(toolName, toolArgs, context);
+        }
+
+        // Special handling for human approval denial
+        if (!toolResult.success && toolResult.error?.includes('APPROVAL_DENIED')) {
+          memory.approvalRejected = true;
+          this.emitEvent({
+            id: uuidv4(),
+            taskId,
+            stepNumber: task.stepsCount,
+            timestamp: new Date().toISOString(),
+            eventType: 'tool_call_failed',
+            payload: { toolName, error: toolResult.error },
+            durationMs: toolResult.durationMs
+          });
+
+          await this.finishTask(
+            taskId,
+            'failed',
+            `Operation aborted: Consequential action '${toolName}' was denied/rejected by human operator during authorization confirmation. Protected action was NOT executed.`,
+            memory
+          );
+          break;
+        }
+
+        // Special handling for duplicate record rejection at database layer
+        if (!toolResult.success && toolResult.error?.includes('DUPLICATE_RECORD')) {
+          memory.duplicateDetected = true;
+          this.emitEvent({
+            id: uuidv4(),
+            taskId,
+            stepNumber: task.stepsCount,
+            timestamp: new Date().toISOString(),
+            eventType: 'tool_call_failed',
+            payload: { toolName, error: toolResult.error },
+            durationMs: toolResult.durationMs
+          });
+
+          const verification = await this.verificationEngine.verifyTaskCompletion(task.goal, memory);
+          await this.finishTask(
+            taskId,
+            'succeeded',
+            `Safe duplicate interception: Invoice is already recorded in the system ledger. Write was safely prevented to protect financial integrity.`,
+            memory,
+            verification.evidence
+          );
+          break;
         }
 
         if (toolResult.success) {
-          consecutiveActionRetries = 0; // reset retry counter on success
           if (toolName === 'extract_supported_invoice_fields') {
             memory.extractedInvoice = toolResult.data?.extracted;
+          }
+          if (toolName === 'create_invoice_record' && toolResult.data?.record) {
+            memory.createdRecord = toolResult.data.record;
+          }
+          if (toolName === 'read_invoice' && toolResult.data) {
+            memory.selectedInvoice = toolResult.data;
+            memory.invoiceNumber = toolResult.data.invoiceNumber;
+            memory.companyName = toolResult.data.companyName;
           }
 
           this.emitEvent({

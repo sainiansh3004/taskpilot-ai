@@ -172,7 +172,7 @@ The completion of a task is never decided by model claims. The `VerificationEngi
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/your-username/taskpilot-ai.git
+git clone https://github.com/sainiansh3004/taskpilot-ai.git
 cd taskpilot-ai
 
 # 2. Install workspace dependencies
@@ -275,22 +275,56 @@ Leave `OPENAI_API_KEY` unset to use the built-in deterministic engine, or config
 
 ---
 
-## 16. Testing Commands
+## 16. Testing & Quality Verification
 
-Run the automated test suite:
+TaskPilot AI includes a comprehensive test suite covering end-to-end orchestration, tool validation, failure recovery, and Playwright browser execution.
+
+### Test Commands:
 ```bash
+# Run all automated tests (backend engine + simulated portal)
 npm test
+
+# Run TypeScript type safety checks across all workspaces
+npm run lint
+
+# Validate optimized production bundle builds
+npm run build
 ```
-Runs 20 automated unit and integration tests across:
-- Tool Registry schemas and Zod validation
-- Autonomous orchestration and execution loops
-- Duplicate detection & missing field handling
-- Playwright browser automation
-- Simulated company portal and chaos failure recovery
+
+### Verified Test Results (29 / 29 Passing):
+- **Backend Orchestration Suite (`backend/tests/orchestrator.test.ts`)** — 13 tests covering assignment evaluation scenarios:
+  - **Scenario A**: Primary Success (Acme Ltd) with decoupled postcondition verification
+  - **Scenario B**: Different Input (Globex Corp) without code modifications
+  - **Scenario C**: Existing Record (Duplicate Prevention) safeguarding ledger
+  - **Scenario D**: Missing Information (Wayne Enterprises) detecting missing required fields
+  - **Scenario E**: No Matching Invoice (Stark Industries) truthful negative reporting
+  - **Scenario F**: Transient Failure Recovery (HTTP 500 chaos) via exponential backoff retry
+  - **Scenario G**: Permanent Failure Handling terminating safely with clear error
+  - **Scenario H**: Verification Mismatch detecting modified ledger fields
+  - **Scenario I**: Human Approval Rejection preventing protected action execution
+  - **Scenario J**: Conversational Phrasing robust goal interpretation
+  - **Scenario K**: Concurrency executing parallel tasks without state leakage
+  - **Scenario L**: Loop Protection enforcing step budget and halting loops
+  - Local document repository extraction and verification
+- **Playwright Browser Automation Suite (`backend/tests/browser.test.ts`)** — 5 tests:
+  - Sandboxed navigation locked to allowed portal host
+  - Security violation prevention on unauthorized external domains
+  - DOM table extraction and element inspection
+  - Full-page screenshot capture and audit artifact generation
+- **Restricted Tool Registry Suite (`backend/tests/tools.test.ts`)** — 6 tests:
+  - Strict Zod schema validation on tool arguments
+  - Consequential write authorization guards
+  - Explicit action execution timeouts
+- **Simulated Company Portal Suite (`simulated-company/tests/portal.test.ts`)** — 5 tests:
+  - Schema initialization and deterministic invoice seeding
+  - Invoices search and detail lookups
+  - Financial ledger record creation
+  - Duplicate record rejection (HTTP 409 DUPLICATE_RECORD)
+  - Chaos failure engine (transient 500, rate limit, timeout simulation)
 
 ---
 
-## 16. Sample Demonstration Tasks
+## 17. Sample Demonstration Tasks
 
 1. **Primary Enterprise Workflow (Acme Ltd)**:
    > *"Find the latest invoice from Acme Ltd, extract its amount and due date, enter it into the internal invoice system, verify the saved record, and report the outcome."*
@@ -300,14 +334,16 @@ Runs 20 automated unit and integration tests across:
    > *"Process invoice for Wayne Enterprises."*
 4. **Ambiguity Clarification (Nova Dynamics)**:
    > *"Process invoice for Nova Dynamics."*
-5. **Local Document Repository Analysis**:
+5. **Human Approval Gate**:
+   > *"Find the latest invoice from Acme Ltd, require human approval before entering record, and verify."*
+6. **Local Document Repository Analysis**:
    > *"List and read sample invoice documents in repository, then extract structured fields."*
-6. **Browser Automation**:
+7. **Browser Automation**:
    > *"Open simulated company portal via browser, inspect invoices table, and fill record creation form."*
 
 ---
 
-## 17. Expected Outputs & Verification Results
+## 18. Expected Outputs & Verification Results
 - **Status**: `succeeded`
 - **Verification Score**: `100%`
 - **Audit Checks**: All postconditions pass (Record Exists, Vendor Matched, Amount Matched, Due Date Matched, Latest Selected).
@@ -315,24 +351,24 @@ Runs 20 automated unit and integration tests across:
 
 ---
 
-## 18. Known Limitations
+## 19. Known Limitations
 - Single SQLite writer: Concurrent high-throughput tasks should be upgraded to PostgreSQL for enterprise production.
 - Browser automation is restricted to localhost sandbox to prevent uncontrolled public web access.
 
 ---
 
-## 19. Assumptions
+## 20. Assumptions
 - Vendor invoices use standard calendar dates (`YYYY-MM-DD`).
 - Invoices are denominated in standard currencies (default `USD`).
 
 ---
 
-## 20. External Services Used
+## 21. External Services Used
 - OpenAI API (when `OPENAI_API_KEY` is provided; zero external dependencies when running in offline autonomous mode).
 
 ---
 
-## 21. Design Trade-Offs
+## 22. Design Trade-Offs
 See `docs/design-decisions.md` for full discussion of:
 - Monorepo workspaces vs single package
 - Dual LLM engine for out-of-the-box zero-cost reproducibility
@@ -341,12 +377,12 @@ See `docs/design-decisions.md` for full discussion of:
 
 ---
 
-## 22. Future Improvements
+## 23. Future Improvements
 - Multi-tenant enterprise role-based access control (RBAC).
 - Vector indexing for multi-thousand page contract repositories.
 - Distributed workflow orchestration using Temporal.io.
 
 ---
 
-## 23. Demo Instructions
-See `docs/demo-script.md` for a complete live demonstration checklist and video recording walkthrough.
+## 24. Demo Instructions & Video Walkthrough
+See `docs/demo-script.md` for a complete live demonstration checklist, 3–5 minute video plan, and evaluation talking points.

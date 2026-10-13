@@ -116,22 +116,25 @@ export default function DemoPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-bold text-base text-slate-100">TaskPilot AI — Video Walkthrough & Demonstration</h1>
+              <h1 className="font-bold text-base text-slate-100">TaskPilot AI — Architecture & Execution Walkthrough</h1>
               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                CentrAlign AI Hiring Submission
+                CentrAlign AI Submission
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                Walkthrough Guide
               </span>
             </div>
-            <p className="text-xs text-slate-400">Step-by-step verified execution trace of primary enterprise workflow</p>
+            <p className="text-xs text-slate-400">Step-by-step visual execution trace illustrating plan formulation, tool execution, and decoupled verification</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surfaceMuted hover:bg-slate-700 text-xs text-slate-200 border border-border"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-xs text-primary border border-primary/40 font-semibold"
           >
-            <span>Live Interactive App</span>
-            <ExternalLink className="h-3.5 w-3.5 text-primary" />
+            <span>Launch Live Agent</span>
+            <ExternalLink className="h-3.5 w-3.5" />
           </Link>
         </div>
       </header>
@@ -276,23 +279,26 @@ export default function DemoPage() {
         <div className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-3">
           <h3 className="font-semibold text-sm text-slate-100">CentrAlign Hiring Assignment Submission Summary</h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            TaskPilot AI is an autonomous AI employee engineered from scratch for the CentrAlign hiring assignment. It does not use fake hardcoded clicks. The agent discovers invoices via search, isolates the latest invoice, checks the ledger for duplicates, enters the record into the simulated enterprise database, and independently audits all postconditions before declaring completion.
+            TaskPilot AI is an autonomous AI employee prototype engineered from scratch for the CentrAlign hiring assignment. It discovers invoices via search, isolates the latest invoice deterministically, checks the ledger for duplicates, commits records into the simulated enterprise database, and independently audits postconditions before declaring completion.
           </p>
+          <div className="p-3 bg-slate-900/80 border border-border rounded-lg text-xs text-slate-300">
+            <span className="font-semibold text-primary">Evaluator Note:</span> This walkthrough provides an interactive step-by-step visual demonstration of the execution sequence. For live autonomous task execution against the seeded portal, navigate to the <Link href="/" className="text-cyan-400 underline hover:text-cyan-300">Live Agent Control Center</Link>.
+          </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <span className="px-2.5 py-1 rounded text-xs bg-surfaceMuted border border-border text-slate-300">
-              ✅ Next.js 15 App Router Frontend
+              ✅ Next.js 15 App Router Control Center
             </span>
             <span className="px-2.5 py-1 rounded text-xs bg-surfaceMuted border border-border text-slate-300">
-              ✅ Express & TypeScript Monorepo
+              ✅ Express & TypeScript Monorepo Backend
             </span>
             <span className="px-2.5 py-1 rounded text-xs bg-surfaceMuted border border-border text-slate-300">
               ✅ Bounded Plan-Act-Observe Loop
             </span>
             <span className="px-2.5 py-1 rounded text-xs bg-surfaceMuted border border-border text-slate-300">
-              ✅ 20/20 Automated Tests Passing
+              ✅ 29/29 Automated Tests Passing (Scenarios A–L)
             </span>
             <span className="px-2.5 py-1 rounded text-xs bg-surfaceMuted border border-border text-slate-300">
-              ✅ Playwright Browser Automation
+              ✅ Decoupled Postcondition Verification Engine
             </span>
           </div>
         </div>

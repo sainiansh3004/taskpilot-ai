@@ -30,6 +30,10 @@ export function TaskSubmitter({ onSubmit, isLoading }: TaskSubmitterProps) {
       prompt: 'Process invoice for Nova Dynamics.'
     },
     {
+      title: '🔒 Human Approval Gate',
+      prompt: 'Find the latest invoice from Acme Ltd, require human approval before entering record, and verify.'
+    },
+    {
       title: '📄 Local Documents Analysis',
       prompt: 'List and read sample invoice documents in repository, then extract structured fields.'
     },

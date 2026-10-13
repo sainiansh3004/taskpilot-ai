@@ -243,4 +243,8 @@ export class TaskRepository {
       pendingClarification
     };
   }
+
+  public clearAllTasks(): void {
+    this.db.exec('DELETE FROM execution_events; DELETE FROM tasks;');
+  }
 }

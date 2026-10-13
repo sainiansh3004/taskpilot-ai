@@ -231,10 +231,37 @@ export class AutonomousDeterministicProvider implements LLMProvider {
     }
 
     // =========================================================================
-    // Scenario F: Primary Demonstration Workflow (Acme Ltd / Default Invoice Processing)
+    // Scenario F: Primary Demonstration Workflow (Acme Ltd / General Company Processing)
     // =========================================================================
-    const company = goalLower.includes('globex') ? 'Globex Corp' :
-                    goalLower.includes('initech') ? 'Initech LLC' : 'Acme Ltd';
+    let company = 'Acme Ltd';
+    if (goalLower.includes('globex')) company = 'Globex Corp';
+    else if (goalLower.includes('initech')) company = 'Initech LLC';
+    else if (goalLower.includes('umbrella')) company = 'Umbrella Inc';
+    else if (goalLower.includes('wayne')) company = 'Wayne Enterprises';
+    else if (goalLower.includes('nova')) company = 'Nova Dynamics Ltd';
+    else {
+      const quoteMatch = goal.match(/["']([^"']+)["']/);
+      const fromMatch = goal.match(/(?:from|for)\s+([A-Za-z0-9\s&]+?)(?:,|\.|\s+extract|\s+and|\s+enter|\s+verify|$)/i);
+      if (quoteMatch) {
+        company = quoteMatch[1].trim();
+      } else if (fromMatch) {
+        company = fromMatch[1].trim();
+      }
+    }
+
+    // Check if human approval was explicitly rejected in history
+    if (historyToolNames.includes('request_approval')) {
+      const approvalMessage = [...history].reverse().find(m => m.role === 'tool' && m.name === 'request_approval');
+      const approvalData = approvalMessage ? this.safeParse(approvalMessage.content) : null;
+      if (approvalData && (approvalData.approved === false || approvalData.status === 'REJECTED')) {
+        memory.approvalRejected = true;
+        return {
+          thought: 'Operator rejected the authorization request. Halting task without executing the protected action.',
+          isFinished: true,
+          finalAnswer: 'Action cancelled: Operator rejected authorization to create invoice record in internal ledger. Protected action was NOT executed.'
+        };
+      }
+    }
 
     // Step 1: Search invoices
     if (!historyToolNames.includes('search_invoices')) {
@@ -260,8 +287,9 @@ export class AutonomousDeterministicProvider implements LLMProvider {
     if (!historyToolNames.includes('read_invoice')) {
       const invoices = lastToolResult?.invoices || [];
       if (invoices.length === 0) {
+        memory.noInvoicesFound = true;
         return {
-          thought: `No invoices found matching ${company}. Stopping execution.`,
+          thought: `No invoices found matching ${company}. Stopping execution and reporting honest absence of records.`,
           isFinished: true,
           finalAnswer: `No invoices found for company ${company}.`
         };
@@ -295,6 +323,30 @@ export class AutonomousDeterministicProvider implements LLMProvider {
           id: `call_${Date.now()}`,
           name: 'list_invoice_records',
           arguments: {}
+        }
+      };
+    }
+
+    // Step 3.5: If goal explicitly requested human approval prior to creation
+    const requiresExplicitApproval = goalLower.includes('approval') || goalLower.includes('approve');
+    if (requiresExplicitApproval && !historyToolNames.includes('request_approval') && !historyToolNames.includes('create_invoice_record')) {
+      const inv = memory.selectedInvoice;
+      return {
+        thought: `Goal requires explicit operator authorization prior to financial record entry. Requesting approval for invoice ${inv.invoiceNumber}.`,
+        subgoal: `Request human approval for ${inv.invoiceNumber}`,
+        toolCall: {
+          id: `call_${Date.now()}`,
+          name: 'request_approval',
+          arguments: {
+            actionName: 'create_invoice_record',
+            details: {
+              invoiceNumber: inv.invoiceNumber,
+              amount: inv.amount,
+              dueDate: inv.dueDate,
+              companyName: inv.companyName
+            },
+            reason: `Action creates a financial ledger entry for ${inv.companyName} (${inv.invoiceNumber}) amounting to $${inv.amount}.`
+          }
         }
       };
     }
