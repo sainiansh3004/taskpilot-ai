@@ -98,8 +98,11 @@ export interface AgentContext {
   requestClarification: (question: string, options?: string[], context?: Record<string, any>) => Promise<string>;
 }
 
+export type VerificationStatus = 'verified_success' | 'verified_failure' | 'inconclusive';
+
 export interface VerificationResult {
   verified: boolean;
+  status: VerificationStatus;
   score: number; // 0 to 1
   checkedConditions: Array<{
     name: string;

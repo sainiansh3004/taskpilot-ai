@@ -15,7 +15,7 @@ export class AutonomousDeterministicProvider implements LLMProvider {
     const historyToolNames = history.filter(m => m.role === 'assistant' && m.tool_calls).flatMap(m => m.tool_calls!.map(tc => tc.function.name));
 
     // =========================================================================
-    // Scenario A: Ambiguity Clarification (e.g. Nova Dynamics)
+    // Scenario A: Ambiguity Clarification (e.g. Nova Dynamics or multi-entity match)
     // =========================================================================
     if (goalLower.includes('nova') && !memory.clarifiedTarget) {
       if (!historyToolNames.includes('request_clarification')) {
@@ -34,7 +34,6 @@ export class AutonomousDeterministicProvider implements LLMProvider {
           }
         };
       } else {
-        // Clarification was provided!
         const clarificationAns = lastToolResult?.operatorResponse || 'Nova Dynamics Ltd';
         memory.clarifiedTarget = clarificationAns;
       }
@@ -84,7 +83,6 @@ export class AutonomousDeterministicProvider implements LLMProvider {
         };
       }
 
-      // Finish document workflow
       const extracted = lastToolResult?.extracted || {};
       return {
         thought: 'Document parsed and verified. Synthesizing final summary.',
@@ -154,99 +152,46 @@ export class AutonomousDeterministicProvider implements LLMProvider {
     }
 
     // =========================================================================
-    // Scenario D: Incomplete / Missing Fields (Wayne Enterprises)
+    // General Autonomous Invoice Processing Flow (Acme, Globex, Initech, Umbrella, Wayne, etc.)
     // =========================================================================
-    if (goalLower.includes('wayne') || goalLower.includes('missing')) {
-      if (!historyToolNames.includes('search_invoices')) {
-        return {
-          thought: 'Goal requests invoice inspection for Wayne Enterprises. Searching portal invoices.',
-          plan: ['Search Wayne Enterprises invoices', 'Inspect invoice details', 'Identify missing fields'],
-          subgoal: 'Search invoices for Wayne Enterprises',
-          toolCall: {
-            id: `call_${Date.now()}`,
-            name: 'search_invoices',
-            arguments: { query: 'Wayne Enterprises' }
-          }
-        };
-      }
 
-      if (!historyToolNames.includes('read_invoice')) {
-        const invoices = lastToolResult?.invoices || [];
-        const wayneInv = invoices[0] || { id: 'inv-wayne-401' };
-        memory.selectedInvoice = wayneInv;
-        return {
-          thought: `Found invoice ${wayneInv.id}. Reading full details to check required fields.`,
-          subgoal: `Read invoice ${wayneInv.id}`,
-          toolCall: {
-            id: `call_${Date.now()}`,
-            name: 'read_invoice',
-            arguments: { invoiceId: wayneInv.id }
-          }
-        };
-      }
+    // Extract target vendor/company name from goal
+    let company = '';
+    const quoteMatch = goal.match(/["']([^"']+)["']/);
+    const fromMatch = goal.match(/(?:from|for|vendor)\s+([A-Za-z0-9\s&.,'-]+?)(?:,|\.|\s+extract|\s+and|\s+enter|\s+verify|\s+require|\s+record|\s+register|$)/i);
+    const invoiceNumMatch = goal.match(/\b(INV-\d{4}-\d{3,4})\b/i);
 
-      // Check for missing fields
-      const inv = lastToolResult;
-      const missing = inv?.missingFields || [];
-      if (!inv?.dueDate || missing.includes('dueDate')) {
-        memory.missingFieldDetected = true;
-        memory.missingFields = ['dueDate'];
-        return {
-          thought: 'Invoice inspected. The due date is MISSING. Aborting record creation and reporting incomplete data.',
-          isFinished: true,
-          finalAnswer: `Task halted: Invoice ${inv.invoiceNumber} for ${inv.companyName} is missing required field 'dueDate'. Cannot enter incomplete record without valid due date.`
-        };
+    if (quoteMatch) {
+      company = quoteMatch[1].trim();
+    } else if (goalLower.includes('acme')) {
+      company = 'Acme Ltd';
+    } else if (goalLower.includes('globex')) {
+      company = 'Globex Corp';
+    } else if (goalLower.includes('initech')) {
+      company = 'Initech LLC';
+    } else if (goalLower.includes('umbrella')) {
+      company = 'Umbrella Inc';
+    } else if (goalLower.includes('wayne')) {
+      company = 'Wayne Enterprises';
+    } else if (goalLower.includes('nova')) {
+      company = 'Nova Dynamics Ltd';
+    } else if (invoiceNumMatch) {
+      company = invoiceNumMatch[1].trim();
+    } else if (fromMatch) {
+      const candidate = fromMatch[1].trim();
+      if (!/^(any|the|all|pending|our)\b/i.test(candidate)) {
+        company = candidate;
+      } else {
+        company = goal.trim();
       }
+    } else {
+      company = goal.trim();
     }
 
-    // =========================================================================
-    // Scenario E: Duplicate Detection (Umbrella Inc)
-    // =========================================================================
-    if (goalLower.includes('umbrella') || goalLower.includes('duplicate')) {
-      if (!historyToolNames.includes('list_invoice_records')) {
-        return {
-          thought: 'Before creating a record, checking existing ledger records to prevent duplicates.',
-          plan: ['Check existing ledger records for duplicates', 'Inspect invoice', 'Handle duplicate safely'],
-          subgoal: 'Check existing ledger records',
-          toolCall: {
-            id: `call_${Date.now()}`,
-            name: 'list_invoice_records',
-            arguments: {}
-          }
-        };
-      }
-
-      const existingRecords = lastToolResult?.records || [];
-      const umbrellaRecord = existingRecords.find((r: any) => r.companyName.includes('Umbrella') || r.invoiceNumber === 'INV-2024-301');
-
-      if (umbrellaRecord) {
-        memory.duplicateDetected = true;
-        memory.existingRecord = umbrellaRecord;
-        return {
-          thought: `Invoice INV-2024-301 is ALREADY recorded in the ledger (Record ID: ${umbrellaRecord.id}). Preventing duplicate creation.`,
-          isFinished: true,
-          finalAnswer: `Duplicate detected: Invoice INV-2024-301 for Umbrella Inc was already recorded on ${umbrellaRecord.createdAt} (Record ID: ${umbrellaRecord.id}). Skipped creating duplicate.`
-        };
-      }
-    }
-
-    // =========================================================================
-    // Scenario F: Primary Demonstration Workflow (Acme Ltd / General Company Processing)
-    // =========================================================================
-    let company = 'Acme Ltd';
-    if (goalLower.includes('globex')) company = 'Globex Corp';
-    else if (goalLower.includes('initech')) company = 'Initech LLC';
-    else if (goalLower.includes('umbrella')) company = 'Umbrella Inc';
-    else if (goalLower.includes('wayne')) company = 'Wayne Enterprises';
-    else if (goalLower.includes('nova')) company = 'Nova Dynamics Ltd';
-    else {
-      const quoteMatch = goal.match(/["']([^"']+)["']/);
-      const fromMatch = goal.match(/(?:from|for)\s+([A-Za-z0-9\s&]+?)(?:,|\.|\s+extract|\s+and|\s+enter|\s+verify|$)/i);
-      if (quoteMatch) {
-        company = quoteMatch[1].trim();
-      } else if (fromMatch) {
-        company = fromMatch[1].trim();
-      }
+    // If clarification was already resolved, override company if appropriate
+    if (memory.clarifiedTarget && typeof memory.clarifiedTarget === 'string') {
+      const cleanTarget = memory.clarifiedTarget.replace(/\s*\([^)]*\)/, '').trim();
+      if (cleanTarget) company = cleanTarget;
     }
 
     // Check if human approval was explicitly rejected in history
@@ -256,17 +201,17 @@ export class AutonomousDeterministicProvider implements LLMProvider {
       if (approvalData && (approvalData.approved === false || approvalData.status === 'REJECTED')) {
         memory.approvalRejected = true;
         return {
-          thought: 'Operator rejected the authorization request. Halting task without executing the protected action.',
+          thought: 'Operator rejected authorization request. Halting task without executing protected action.',
           isFinished: true,
           finalAnswer: 'Action cancelled: Operator rejected authorization to create invoice record in internal ledger. Protected action was NOT executed.'
         };
       }
     }
 
-    // Step 1: Search invoices
+    // Step 1: Search portal invoices
     if (!historyToolNames.includes('search_invoices')) {
       return {
-        thought: `Goal is to process the latest invoice for ${company}. Step 1 is to query the portal for matching invoices.`,
+        thought: `Goal is to locate and process invoice for '${company}'. Querying portal for matching invoices.`,
         plan: [
           `Search portal invoices for ${company}`,
           'Identify latest invoice and extract amount and due date',
@@ -283,19 +228,38 @@ export class AutonomousDeterministicProvider implements LLMProvider {
       };
     }
 
-    // Step 2: Read details of latest invoice
+    // Step 2: Read details of target invoice
     if (!historyToolNames.includes('read_invoice')) {
-      const invoices = lastToolResult?.invoices || [];
+      const invoices = (lastToolResult?.invoices as any[]) || [];
       if (invoices.length === 0) {
         memory.noInvoicesFound = true;
         return {
-          thought: `No invoices found matching ${company}. Stopping execution and reporting honest absence of records.`,
+          thought: `No invoices found matching query '${company}'. Stopping execution and reporting honest absence of records.`,
           isFinished: true,
           finalAnswer: `No invoices found for company ${company}.`
         };
       }
 
-      // Sort by issueDate descending to ensure the LATEST invoice is selected
+      // Check for ambiguity among multiple distinct vendor names if not already clarified
+      const distinctVendors = Array.from(new Set(invoices.map((inv: any) => inv.companyName)));
+      if (distinctVendors.length > 1 && !memory.clarifiedTarget && !historyToolNames.includes('request_clarification')) {
+        return {
+          thought: `Search query '${company}' matched multiple distinct vendors (${distinctVendors.join(', ')}). Requesting human clarification.`,
+          plan: ['Detect ambiguous entity', 'Request human clarification', 'Process clarified target'],
+          subgoal: `Clarify vendor target with operator`,
+          toolCall: {
+            id: `call_${Date.now()}`,
+            name: 'request_clarification',
+            arguments: {
+              question: `Multiple vendors match '${company}'. Which entity should be processed?`,
+              options: distinctVendors,
+              context: { matches: distinctVendors }
+            }
+          }
+        };
+      }
+
+      // Sort by issueDate descending to select the latest invoice
       const sorted = [...invoices].sort((a: any, b: any) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
       const latest = sorted[0];
       memory.selectedInvoice = latest;
@@ -313,9 +277,40 @@ export class AutonomousDeterministicProvider implements LLMProvider {
       };
     }
 
+    // Inspect invoice retrieved by read_invoice for required fields
+    const inv = memory.selectedInvoice || lastToolResult;
+    if (inv) {
+      const missingFields: string[] = [];
+      if (!inv.companyName || typeof inv.companyName !== 'string' || inv.companyName.trim().length === 0) {
+        missingFields.push('companyName');
+      }
+      if (!inv.invoiceNumber || typeof inv.invoiceNumber !== 'string' || inv.invoiceNumber.trim().length === 0) {
+        missingFields.push('invoiceNumber');
+      }
+      if (inv.amount === undefined || inv.amount === null || typeof inv.amount !== 'number' || isNaN(inv.amount) || inv.amount <= 0) {
+        missingFields.push('amount');
+      }
+      if (!inv.dueDate || typeof inv.dueDate !== 'string' || inv.dueDate.trim().length === 0) {
+        missingFields.push('dueDate');
+      }
+      if (inv.missingFields && Array.isArray(inv.missingFields)) {
+        missingFields.push(...inv.missingFields);
+      }
+
+      const uniqueMissing = Array.from(new Set(missingFields));
+      if (uniqueMissing.length > 0) {
+        memory.missingFieldDetected = true;
+        memory.missingFields = uniqueMissing;
+        return {
+          thought: `Invoice ${inv.invoiceNumber || inv.id} is missing required field(s): [${uniqueMissing.join(', ')}]. Aborting to avoid entering incomplete records.`,
+          isFinished: true,
+          finalAnswer: `Task halted: Invoice ${inv.invoiceNumber || inv.id} for ${inv.companyName || 'unknown vendor'} is missing required field(s): ${uniqueMissing.join(', ')}. Cannot enter incomplete record without valid data.`
+        };
+      }
+    }
+
     // Step 3: Check for existing duplicate in ledger before writing
     if (!historyToolNames.includes('list_invoice_records')) {
-      const inv = memory.selectedInvoice || lastToolResult;
       return {
         thought: `Extracted details: Amount $${inv.amount}, Due Date ${inv.dueDate}. Before entering record, checking ledger to guarantee idempotency.`,
         subgoal: 'Check ledger for duplicates',
@@ -330,7 +325,6 @@ export class AutonomousDeterministicProvider implements LLMProvider {
     // Step 3.5: If goal explicitly requested human approval prior to creation
     const requiresExplicitApproval = goalLower.includes('approval') || goalLower.includes('approve');
     if (requiresExplicitApproval && !historyToolNames.includes('request_approval') && !historyToolNames.includes('create_invoice_record')) {
-      const inv = memory.selectedInvoice;
       return {
         thought: `Goal requires explicit operator authorization prior to financial record entry. Requesting approval for invoice ${inv.invoiceNumber}.`,
         subgoal: `Request human approval for ${inv.invoiceNumber}`,
@@ -353,21 +347,21 @@ export class AutonomousDeterministicProvider implements LLMProvider {
 
     // Step 4: Create invoice record
     if (!historyToolNames.includes('create_invoice_record')) {
-      const inv = memory.selectedInvoice;
-      const records = lastToolResult?.records || [];
+      const records = (lastToolResult?.records as any[]) || [];
       const alreadyEntered = records.find((r: any) => r.invoiceNumber === inv.invoiceNumber);
 
       if (alreadyEntered) {
         memory.duplicateDetected = true;
+        memory.existingRecord = alreadyEntered;
         return {
-          thought: `Invoice ${inv.invoiceNumber} is already in the ledger. Halting to avoid duplicate.`,
+          thought: `Invoice ${inv.invoiceNumber} is already in the ledger (Record ID: ${alreadyEntered.id}). Halting to avoid duplicate.`,
           isFinished: true,
-          finalAnswer: `Invoice ${inv.invoiceNumber} is already entered in the ledger (Record ID: ${alreadyEntered.id}).`
+          finalAnswer: `Invoice ${inv.invoiceNumber} for ${inv.companyName} is already recorded in the ledger (Record ID: ${alreadyEntered.id}). Skipped creating duplicate to preserve ledger integrity.`
         };
       }
 
       return {
-        thought: `Ledger check confirmed no existing record. Entering invoice ${inv.invoiceNumber} into the internal accounting system.`,
+        thought: `Ledger check confirmed no existing record. Entering invoice ${inv.invoiceNumber} into internal accounting system.`,
         subgoal: `Create invoice record for ${inv.invoiceNumber}`,
         toolCall: {
           id: `call_${Date.now()}`,
@@ -387,7 +381,6 @@ export class AutonomousDeterministicProvider implements LLMProvider {
 
     // Step 5: Independent Verification
     if (!historyToolNames.includes('verify_invoice_record')) {
-      const inv = memory.selectedInvoice;
       if (lastToolResult?.record) {
         memory.createdRecord = lastToolResult.record;
       }

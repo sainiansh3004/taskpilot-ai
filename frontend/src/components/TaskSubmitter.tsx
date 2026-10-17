@@ -45,6 +45,7 @@ export function TaskSubmitter({ onSubmit, isLoading }: TaskSubmitterProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     if (!goal.trim()) {
       setError('Please enter a business task goal.');
       return;

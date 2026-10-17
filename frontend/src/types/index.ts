@@ -58,6 +58,23 @@ export interface TaskRecord {
   pendingClarification?: PendingClarification;
 }
 
+export type VerificationStatus = 'verified_success' | 'verified_failure' | 'inconclusive';
+
+export interface VerificationResult {
+  verified: boolean;
+  status: VerificationStatus;
+  score: number;
+  checkedConditions: Array<{
+    name: string;
+    passed: boolean;
+    expected: any;
+    actual: any;
+    details?: string;
+  }>;
+  evidence: Record<string, any>;
+  summary: string;
+}
+
 export interface DashboardStats {
   totalTasks: number;
   verified: number;

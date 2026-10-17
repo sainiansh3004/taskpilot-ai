@@ -72,8 +72,12 @@ export const createInvoiceRecordTool: ToolDefinition = {
     invoiceId: z.string().min(1, 'Invoice ID is required').describe('Source invoice ID (e.g. "inv-acme-002")'),
     companyName: z.string().min(1, 'Company Name is required').describe('Vendor/Company name (e.g. "Acme Ltd")'),
     invoiceNumber: z.string().min(1, 'Invoice Number is required').describe('Invoice number (e.g. "INV-2024-098")'),
-    amount: z.number().positive('Amount must be positive').describe('Total invoice amount (e.g. 3890.50)'),
-    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD').describe('Due date in YYYY-MM-DD format'),
+    amount: z.number().positive('Amount must be positive').max(1_000_000_000, 'Amount exceeds maximum allowable threshold').describe('Total invoice amount (e.g. 3890.50)'),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD').refine(dateStr => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+    }, 'Due date must be a valid calendar date').describe('Due date in YYYY-MM-DD format'),
     currency: z.string().default('USD').describe('Currency code (e.g. "USD")'),
     notes: z.string().optional().describe('Optional audit notes or rationale')
   }),

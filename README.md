@@ -133,13 +133,19 @@ TaskPilot AI maintains task-scoped working memory:
 
 ## 8. Verification Approach
 The completion of a task is never decided by model claims. The `VerificationEngine` independently queries the portal database and audits:
-1. Record existence in persistent storage.
-2. Vendor name match against source invoice.
-3. Amount match (exact currency value).
-4. Due date match (`YYYY-MM-DD`).
-5. Latest invoice selection verification.
-6. Safe duplicate interception.
-7. Incomplete field detection.
+1. **Tripartite Status Model**: Explicitly classifies verification as:
+   - `verified_success`: All expected postconditions independently confirmed in the database, OR approval rejected and absence of record confirmed (HTTP 404).
+   - `verified_failure`: Mismatch between memory and persisted ledger record (vendor, amount, due date), or record exists when action was rejected.
+   - `inconclusive`: Search/verification tool failed, times out, network error, or simulated portal unavailable (avoids false-success inferences).
+2. **Positive Proof for Negative Search (Issue A)**: Requires affirmative evidence that `search_invoices` was explicitly executed, completed successfully, and returned a valid empty array before verifying "invoice not found". If search was skipped or threw an error, verification reports `inconclusive` or fails.
+3. **Approval Rejection Safety (Issue B)**: A rejected consequential action verifies that no record was created. If the portal is offline or returns 500, verification reports `inconclusive` rather than falsely assuming absence.
+4. Record existence in persistent storage.
+5. Vendor name match against source invoice.
+6. Amount match (exact currency value).
+7. Due date match (`YYYY-MM-DD`).
+8. Latest invoice selection verification.
+9. Safe duplicate interception.
+10. Incomplete field detection.
 
 ---
 
@@ -291,7 +297,21 @@ npm run lint
 npm run build
 ```
 
-### Verified Test Results (29 / 29 Passing):
+### Verified Test Results (56 / 56 Passing across 5 Test Suites):
+- **Verification Engine Suite (`backend/tests/verification.test.ts`)** — 16 tests:
+  - **Issue A Resolution**: Mandatory positive proof for negative invoice search (requires explicit tool execution, successful status, and valid empty array; rejects missing, failed, or malformed search)
+  - **Issue B Resolution**: Explicit tripartite verification status (`verified_success`, `verified_failure`, `inconclusive`) for approval rejection
+  - Rejection with portal error/timeout reports `inconclusive`, never false success
+  - Rejection with unexpected record creation reports `verified_failure`
+  - Rejection with verified 404 absence reports `verified_success`
+  - Complete field auditing (vendor, amount, due date, ordering) and mismatch detection
+- **Edge Cases & Safety Suite (`backend/tests/edge_cases.test.ts`)** — 11 tests:
+  - Amount validation: Rejection of zero, negative, NaN, infinite, and out-of-bounds (> $1B) amounts
+  - Strict calendar date validation: Rejection of non-existent dates (e.g. `2024-02-31`, `2023-04-31`)
+  - Strict unstructured document extraction validation
+  - Cancellation safety: Immediate termination of pending execution loops, unblocking of pending approval/clarification promises, and prevention of post-cancellation ledger writes
+  - Atomic duplicate conflict handling: SQLite `UNIQUE(company_name, invoice_number)` constraint mapped to HTTP 409 `DUPLICATE_RECORD`
+  - Concurrent task execution without state leakage
 - **Backend Orchestration Suite (`backend/tests/orchestrator.test.ts`)** — 13 tests covering assignment evaluation scenarios:
   - **Scenario A**: Primary Success (Acme Ltd) with decoupled postcondition verification
   - **Scenario B**: Different Input (Globex Corp) without code modifications

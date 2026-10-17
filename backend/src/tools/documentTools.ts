@@ -69,13 +69,29 @@ export const extractInvoiceFieldsTool: ToolDefinition = {
     const amountMatch = content.match(/(?:Total\s*Amount\s*Due|Total):\s*\$?\s*([\d,]+\.?\d*)/i);
     const currencyMatch = content.match(/\b(USD|EUR|GBP|CAD)\b/i);
 
-    const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : undefined;
+    let amount: number | undefined;
+    if (amountMatch) {
+      const parsed = parseFloat(amountMatch[1].replace(/,/g, ''));
+      if (!isNaN(parsed) && Number.isFinite(parsed) && parsed > 0) {
+        amount = Math.round(parsed * 100) / 100;
+      }
+    }
+
+    let dueDate = dueDateMatch ? dueDateMatch[1].trim() : undefined;
+    if (dueDate) {
+      const [y, m, d] = dueDate.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      const isValidDate = dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+      if (!isValidDate) {
+        dueDate = undefined;
+      }
+    }
 
     const extracted = {
       companyName: companyMatch ? companyMatch[1].trim() : undefined,
       invoiceNumber: invoiceNumMatch ? invoiceNumMatch[1].trim() : undefined,
       issueDate: issueDateMatch ? issueDateMatch[1].trim() : undefined,
-      dueDate: dueDateMatch ? dueDateMatch[1].trim() : undefined,
+      dueDate,
       amount,
       currency: currencyMatch ? currencyMatch[1].toUpperCase() : 'USD',
       missingFields: [] as string[]
@@ -83,7 +99,7 @@ export const extractInvoiceFieldsTool: ToolDefinition = {
 
     if (!extracted.companyName) extracted.missingFields.push('companyName');
     if (!extracted.invoiceNumber) extracted.missingFields.push('invoiceNumber');
-    if (!extracted.amount) extracted.missingFields.push('amount');
+    if (extracted.amount === undefined) extracted.missingFields.push('amount');
     if (!extracted.dueDate) extracted.missingFields.push('dueDate');
 
     return {

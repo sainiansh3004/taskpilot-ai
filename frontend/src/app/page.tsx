@@ -12,6 +12,7 @@ import { PortalModal } from '../components/PortalModal';
 import {
   API_BASE,
   clearAllTasks,
+  fetchTasks,
   fetchTask,
   fetchTaskEvents,
   createTask,
@@ -31,16 +32,15 @@ export default function Home() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    // When the link is opened, refreshed, or restarted, always show 0 tasks and clean session state
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('taskpilot_saved_tasks');
-        sessionStorage.removeItem('taskpilot_saved_tasks');
-      } catch {}
-    }
-    setTasks([]);
-    setActiveTask(null);
-    setEvents([]);
+    fetchTasks().then((loadedTasks: TaskRecord[]) => {
+      if (loadedTasks && loadedTasks.length > 0) {
+        setTasks(loadedTasks);
+        setActiveTask(loadedTasks[0]);
+        fetchTaskEvents(loadedTasks[0].id).then(setEvents).catch(() => {});
+      }
+    }).catch((err: unknown) => {
+      console.warn('Initial tasks load:', err);
+    });
   }, []);
 
   const handleClearTasks = async () => {

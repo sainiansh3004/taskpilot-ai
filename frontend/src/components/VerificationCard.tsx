@@ -12,10 +12,20 @@ interface VerificationCardProps {
 export function VerificationCard({ task }: VerificationCardProps) {
   const isComplete = ['succeeded', 'partially_succeeded', 'failed', 'budget_exhausted'].includes(task.status);
   const evidence = task.evidence || {};
-  const conditions = evidence.checkedConditions || evidence.verification?.checks || [];
+  const verification = evidence.verification || {};
+  const conditions = evidence.checkedConditions || verification.checkedConditions || verification.checks || [];
   const savedRecord = evidence.savedRecord || (evidence.recordId ? { id: evidence.recordId, invoiceNumber: evidence.invoiceNumber, companyName: evidence.companyName || evidence.vendor, amount: evidence.amount, dueDate: evidence.dueDate } : null);
 
   const getStatusBadge = (status: string) => {
+    if (verification.status === 'inconclusive') {
+      return <span className="px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">INCONCLUSIVE VERIFICATION</span>;
+    }
+    if (verification.status === 'verified_failure') {
+      return <span className="px-2.5 py-1 rounded text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">VERIFIED FAILURE</span>;
+    }
+    if (verification.status === 'verified_success' && status === 'succeeded') {
+      return <span className="px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">VERIFIED SUCCESS (100%)</span>;
+    }
     switch (status) {
       case 'succeeded':
         return <span className="px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">VERIFIED SUCCESS (100%)</span>;

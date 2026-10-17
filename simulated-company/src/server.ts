@@ -132,9 +132,13 @@ export function createPortalApp(dbInstance?: PortalDatabase) {
     invoiceId: z.string().min(1, 'Invoice ID is required'),
     companyName: z.string().min(1, 'Company Name is required'),
     invoiceNumber: z.string().min(1, 'Invoice Number is required'),
-    amount: z.number().positive('Amount must be positive'),
+    amount: z.number().positive('Amount must be positive').max(1_000_000_000, 'Amount exceeds threshold'),
     currency: z.string().default('USD'),
-    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD'),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD').refine(dateStr => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+    }, 'Due date must be a valid calendar date'),
     notes: z.string().optional()
   });
 
@@ -187,7 +191,7 @@ export function createPortalApp(dbInstance?: PortalDatabase) {
         record: created
       });
     } catch (err: any) {
-      if (err.message && err.message.includes('DUPLICATE_RECORD')) {
+      if (err.message && (err.message.includes('DUPLICATE_RECORD') || err.message.includes('UNIQUE constraint failed') || err.code === 'SQLITE_CONSTRAINT_UNIQUE')) {
         return res.status(409).json({ success: false, error: 'DUPLICATE_RECORD', message: err.message });
       }
       res.status(500).json({ success: false, error: err.message });

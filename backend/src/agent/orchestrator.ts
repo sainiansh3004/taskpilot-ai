@@ -108,7 +108,7 @@ export class AgentOrchestrator {
 
   public async resolveApproval(taskId: string, approved: boolean): Promise<boolean> {
     const task = this.repo.getTaskById(taskId);
-    if (!task || !task.pendingApproval || task.status !== 'awaiting_approval') {
+    if (!task || !task.pendingApproval || task.status !== 'awaiting_approval' || !this.activeExecutions.has(taskId)) {
       return false;
     }
 
@@ -141,7 +141,7 @@ export class AgentOrchestrator {
 
   public async resolveClarification(taskId: string, response: string): Promise<boolean> {
     const task = this.repo.getTaskById(taskId);
-    if (!task || !task.pendingClarification || task.status !== 'awaiting_clarification') {
+    if (!task || !task.pendingClarification || task.status !== 'awaiting_clarification' || !this.activeExecutions.has(taskId)) {
       return false;
     }
 
@@ -179,6 +179,23 @@ export class AgentOrchestrator {
     }
 
     this.activeExecutions.delete(taskId);
+
+    // Unblock any pending approval or clarification promises immediately
+    if (task.pendingApproval) {
+      const resolver = this.approvalResolvers.get(task.pendingApproval.id);
+      if (resolver) {
+        resolver(false);
+        this.approvalResolvers.delete(task.pendingApproval.id);
+      }
+    }
+    if (task.pendingClarification) {
+      const resolver = this.clarificationResolvers.get(task.pendingClarification.id);
+      if (resolver) {
+        resolver('CANCELLED');
+        this.clarificationResolvers.delete(task.pendingClarification.id);
+      }
+    }
+
     this.repo.updateTask(taskId, {
       status: 'cancelled',
       completedAt: new Date().toISOString(),
@@ -299,7 +316,7 @@ export class AgentOrchestrator {
               taskId,
               stepNumber: task.stepsCount,
               timestamp: new Date().toISOString(),
-              eventType: 'verification_passed',
+              eventType: verification.verified ? 'verification_passed' : 'verification_failed',
               payload: { verification }
             });
 
@@ -458,6 +475,8 @@ export class AgentOrchestrator {
         };
 
         // 7. Execute Tool with Retries
+        if (!this.activeExecutions.has(taskId)) break;
+
         this.emitEvent({
           id: uuidv4(),
           taskId,
@@ -468,6 +487,8 @@ export class AgentOrchestrator {
         });
 
         let toolResult = await this.tools.executeTool(toolName, toolArgs, context);
+
+        if (!this.activeExecutions.has(taskId)) break;
 
         // Bounded retries with backoff for transient failures (per-action tracker)
         let actionRetryCount = 0;
@@ -509,8 +530,11 @@ export class AgentOrchestrator {
           });
 
           await new Promise(r => setTimeout(r, backoffMs));
+          if (!this.activeExecutions.has(taskId)) break;
           toolResult = await this.tools.executeTool(toolName, toolArgs, context);
         }
+
+        if (!this.activeExecutions.has(taskId)) break;
 
         // Special handling for human approval denial
         if (!toolResult.success && toolResult.error?.includes('APPROVAL_DENIED')) {
@@ -525,11 +549,23 @@ export class AgentOrchestrator {
             durationMs: toolResult.durationMs
           });
 
+          // Run independent postcondition verification
+          const verification = await this.verificationEngine.verifyTaskCompletion(task.goal, memory);
+          this.emitEvent({
+            id: uuidv4(),
+            taskId,
+            stepNumber: task.stepsCount,
+            timestamp: new Date().toISOString(),
+            eventType: verification.verified ? 'verification_passed' : 'verification_failed',
+            payload: { verification }
+          });
+
           await this.finishTask(
             taskId,
             'failed',
             `Operation aborted: Consequential action '${toolName}' was denied/rejected by human operator during authorization confirmation. Protected action was NOT executed.`,
-            memory
+            memory,
+            verification.evidence
           );
           break;
         }
@@ -559,6 +595,15 @@ export class AgentOrchestrator {
         }
 
         if (toolResult.success) {
+          if (toolName === 'search_invoices') {
+            memory.searchInvoicesResult = {
+              invoked: true,
+              success: true,
+              count: toolResult.data?.count,
+              invoices: toolResult.data?.invoices,
+              query: toolArgs?.query
+            };
+          }
           if (toolName === 'extract_supported_invoice_fields') {
             memory.extractedInvoice = toolResult.data?.extracted;
           }
@@ -599,6 +644,15 @@ export class AgentOrchestrator {
             content: JSON.stringify(toolResult.data)
           });
         } else {
+          if (toolName === 'search_invoices') {
+            memory.searchInvoicesResult = {
+              invoked: true,
+              success: false,
+              error: toolResult.error,
+              query: toolArgs?.query
+            };
+          }
+
           this.emitEvent({
             id: uuidv4(),
             taskId,
